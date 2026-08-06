@@ -13,12 +13,49 @@ CREDENTIALS_PATH = os.getenv(
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID", "")
 
 
+def get_spreadsheet_id() -> str:
+    env_id = os.getenv("SPREADSHEET_ID", "").strip()
+    if env_id:
+        return env_id
+    try:
+        import streamlit as st
+
+        return str(st.secrets.get("SPREADSHEET_ID", "")).strip()
+    except Exception:
+        return ""
+
+
+_SERVICE_ACCOUNT_SECRET_KEYS = (
+    "gcp_service_account",
+    "google_service_account",
+    "service_account",
+)
+
+
+def get_service_account_info() -> dict | None:
+    try:
+        import streamlit as st
+
+        for key in _SERVICE_ACCOUNT_SECRET_KEYS:
+            if key in st.secrets:
+                return dict(st.secrets[key])
+    except Exception:
+        pass
+    return None
+
+
+def has_google_credentials() -> bool:
+    if Path(CREDENTIALS_PATH).exists():
+        return True
+    return get_service_account_info() is not None
+
+
 def is_preview_mode() -> bool:
     if os.getenv("PREVIEW_MODE", "").lower() in ("1", "true", "yes"):
         return True
-    if not SPREADSHEET_ID:
+    if not get_spreadsheet_id():
         return True
-    return not Path(CREDENTIALS_PATH).exists()
+    return not has_google_credentials()
 
 SHEET_PRODUCTOS = "Productos"
 SHEET_CLIENTES = "Clientes"

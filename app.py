@@ -64,7 +64,8 @@ def init_connection() -> bool:
         st.session_state.preview_mode = True
         show_alert("Modo vista previa — datos de ejemplo (sin Google Sheets)", "warning")
         st.caption(
-            "Configura `.env` y credenciales cuando quieras conectar la hoja. "
+            "Configura Streamlit Secrets (SPREADSHEET_ID y gcp_service_account) "
+            "o el archivo .env local. "
             f"Detalle: {exc}"
         )
         return True

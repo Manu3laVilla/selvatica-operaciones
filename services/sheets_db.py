@@ -10,12 +10,38 @@ import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
 
-from config import CREDENTIALS_PATH, SHEET_SCHEMAS, SPREADSHEET_ID
+from config import (
+    CREDENTIALS_PATH,
+    SHEET_SCHEMAS,
+    get_service_account_info,
+    get_spreadsheet_id,
+    has_google_credentials,
+)
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
+
+
+def _load_credentials() -> Credentials:
+    creds_path = Path(CREDENTIALS_PATH)
+    if creds_path.exists():
+        return Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+
+    if has_google_credentials():
+        service_account_info = get_service_account_info()
+        if service_account_info:
+            return Credentials.from_service_account_info(
+                service_account_info,
+                scopes=SCOPES,
+            )
+
+    raise FileNotFoundError(
+        f"No se encontró el archivo de credenciales en: {creds_path}. "
+        "Configura credentials/service_account.json localmente o "
+        "gcp_service_account en Streamlit Secrets."
+    )
 
 
 class SheetsDB:
@@ -27,24 +53,15 @@ class SheetsDB:
         if self._spreadsheet is not None:
             return self._spreadsheet
 
-        if not SPREADSHEET_ID:
+        spreadsheet_id = get_spreadsheet_id()
+        if not spreadsheet_id:
             raise ValueError(
-                "Falta SPREADSHEET_ID en el archivo .env. "
-                "Copia .env.example a .env y configura tu hoja."
+                "Falta SPREADSHEET_ID. Configúralo en .env o en Streamlit Secrets."
             )
 
-        creds_path = Path(CREDENTIALS_PATH)
-        if not creds_path.exists():
-            raise FileNotFoundError(
-                f"No se encontró el archivo de credenciales en: {creds_path}. "
-                "Sigue las instrucciones del README para crear el Service Account."
-            )
-
-        credentials = Credentials.from_service_account_file(
-            str(creds_path), scopes=SCOPES
-        )
+        credentials = _load_credentials()
         self._client = gspread.authorize(credentials)
-        self._spreadsheet = self._client.open_by_key(SPREADSHEET_ID)
+        self._spreadsheet = self._client.open_by_key(spreadsheet_id)
         self._ensure_sheets()
         return self._spreadsheet
 
