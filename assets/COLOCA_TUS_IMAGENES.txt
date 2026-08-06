@@ -1,0 +1,11 @@
+Coloca aquí tus imágenes originales (sin fondo) con estos nombres:
+
+Logo (sidebar):
+- assets/logo.png  → sticker rosa con borde blanco (el que enviaste)
+
+Doodles (decoración en páginas):
+- assets/doodles/doodles-set-1.png      → cuadrícula de 4 iconos
+- assets/doodles/doodles-stars.png     → 3 estrellas dibujadas
+- assets/doodles/doodles-collection.png → fresas, flores y conejos
+
+La app usa primero los PNG; si no existen, usa los SVG de respaldo.
