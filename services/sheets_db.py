@@ -87,8 +87,27 @@ class SheetsDB:
 
     def get_records(self, sheet_name: str) -> list[dict[str, Any]]:
         worksheet = self.get_worksheet(sheet_name)
-        records = worksheet.get_all_records()
-        return [dict(row) for row in records]
+        values = worksheet.get_all_values()
+        if not values:
+            return []
+
+        headers = [str(cell).strip() for cell in values[0]]
+        if not headers or not any(headers):
+            return []
+
+        records: list[dict[str, Any]] = []
+        for row in values[1:]:
+            if not any(str(cell).strip() for cell in row):
+                continue
+            padded = row + [""] * max(0, len(headers) - len(row))
+            records.append(
+                {
+                    headers[index]: padded[index]
+                    for index in range(len(headers))
+                    if headers[index]
+                }
+            )
+        return records
 
     def get_dataframe(self, sheet_name: str) -> pd.DataFrame:
         records = self.get_records(sheet_name)

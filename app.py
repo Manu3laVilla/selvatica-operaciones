@@ -823,7 +823,10 @@ def _render_dashboard_charts(sales, orders, products) -> None:
 
 
 def _alert_count() -> int:
-    return len(_alerts())
+    try:
+        return len(_alerts())
+    except Exception:
+        return 0
 
 
 def _register_sales_from_order_preview(order: dict, items: list) -> list:
@@ -1525,11 +1528,11 @@ def page_contabilidad() -> None:
 
 
 def main() -> None:
+    init_connection()
     menu = build_nav_menu(_alert_count())
     sync_sidebar_compact_state()
     sync_mobile_nav_from_query(menu)
     page = sidebar()
-    init_connection()
 
     pages = {
         "dashboard": page_dashboard,
