@@ -1849,7 +1849,11 @@ def _render_simple_catalog_admin(
             options = {
                 f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
             }
-            selected = st.selectbox("Selecciona registro", list(options.keys()))
+            selected = st.selectbox(
+                "Selecciona registro",
+                list(options.keys()),
+                key=f"admin_{preview_key}_edit_select",
+            )
             item_id = options[selected]
             current = df[df["id"].astype(str) == str(item_id)].iloc[0]
 
@@ -1897,9 +1901,17 @@ def _render_simple_catalog_admin(
             options = {
                 f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
             }
-            selected = st.selectbox("Selecciona registro", list(options.keys()))
+            selected = st.selectbox(
+                "Selecciona registro",
+                list(options.keys()),
+                key=f"admin_{preview_key}_delete_select",
+            )
             item_id = options[selected]
-            if st.button("Eliminar permanentemente", type="primary"):
+            if st.button(
+                "Eliminar permanentemente",
+                type="primary",
+                key=f"admin_{preview_key}_delete_btn",
+            ):
                 if not _preview_guard(f"eliminar {title.lower()}"):
                     pass
                 else:
@@ -1980,7 +1992,11 @@ def _render_order_states_admin() -> None:
             options = {
                 f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
             }
-            selected = st.selectbox("Selecciona estado", list(options.keys()))
+            selected = st.selectbox(
+                "Selecciona estado",
+                list(options.keys()),
+                key="admin_order_state_edit_select",
+            )
             item_id = options[selected]
             current = df[df["id"].astype(str) == str(item_id)].iloc[0]
 
@@ -2039,9 +2055,13 @@ def _render_order_states_admin() -> None:
             options = {
                 f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
             }
-            selected = st.selectbox("Selecciona estado", list(options.keys()))
+            selected = st.selectbox(
+                "Selecciona estado",
+                list(options.keys()),
+                key="admin_order_state_delete_select",
+            )
             item_id = options[selected]
-            if st.button("Eliminar estado", type="primary"):
+            if st.button("Eliminar estado", type="primary", key="admin_order_state_delete_btn"):
                 if not _preview_guard("eliminar estados de pedido"):
                     pass
                 else:

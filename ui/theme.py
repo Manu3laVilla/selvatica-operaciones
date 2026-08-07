@@ -1974,15 +1974,61 @@ def _secnav_btn_inline_style(active: bool) -> str:
     )
 
 
+def _query_param_value(raw) -> str | None:
+    from urllib.parse import unquote
+
+    if raw is None:
+        return None
+    if isinstance(raw, list):
+        raw = raw[0] if raw else None
+    if raw is None:
+        return None
+    text = unquote(str(raw)).strip()
+    return text or None
+
+
+def _match_section_option(value: str, options: list[str]) -> str | None:
+    if value in options:
+        return value
+    lowered = value.casefold()
+    for option in options:
+        if option.casefold() == lowered:
+            return option
+    return None
+
+
+def _section_preserve_query_suffix(*, exclude_key: str | None = None) -> str:
+    from urllib.parse import quote
+
+    import streamlit as st
+
+    suffix = ""
+    prefix = "secnav_state_"
+    for state_key, value in st.session_state.items():
+        if not state_key.startswith(prefix):
+            continue
+        section_key = state_key[len(prefix) :]
+        if exclude_key and section_key == exclude_key:
+            continue
+        if not value:
+            continue
+        suffix += f"&sec_{section_key}={quote(str(value))}"
+    return suffix
+
+
 def _sync_section_from_query(key: str, options: list[str], state_key: str) -> None:
     import streamlit as st
 
     param_key = f"sec_{key}"
-    value = st.query_params.get(param_key)
-    if not value or value not in options:
+    value = _query_param_value(st.query_params.get(param_key))
+    if not value:
         return
 
-    st.session_state[state_key] = value
+    matched = _match_section_option(value, options)
+    if matched is None:
+        return
+
+    st.session_state[state_key] = matched
     if param_key in st.query_params:
         del st.query_params[param_key]
 
@@ -2004,15 +2050,23 @@ def section_tabs(options: list[str], key: str) -> str:
 
     _sync_section_from_query(key, options, state_key)
     current = st.session_state[state_key]
+    if current not in options:
+        st.session_state[state_key] = options[0]
+        current = options[0]
     page_key = st.session_state.get("nav_page", "dashboard")
     compact_suffix = sidebar_compact_query_suffix()
+    preserve_suffix = _section_preserve_query_suffix(exclude_key=key)
 
     items = []
     for option in options:
         active = option == current
         active_cls = " selv-secnav-btn--active" if active else ""
         safe_label = html_module.escape(option)
-        href = f"?selv_nav={quote(page_key)}&sec_{key}={quote(option)}{compact_suffix}"
+        href = (
+            f"?selv_nav={quote(page_key)}"
+            f"&sec_{key}={quote(option)}"
+            f"{preserve_suffix}{compact_suffix}"
+        )
         items.append(
             f'<a class="selv-secnav-btn{active_cls}" href="{href}" '
             f'title="{safe_label}">{safe_label}</a>'
