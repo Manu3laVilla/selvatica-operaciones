@@ -6,7 +6,7 @@ import pandas as pd
 
 from config import SHEET_VENTAS
 from services.product_service import adjust_stock, get_product
-from services.sheets_db import get_db, new_id, now_str
+from services.db import get_db, new_id, now_str
 
 
 def list_sales() -> pd.DataFrame:

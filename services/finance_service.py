@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 
 from config import SHEET_CONTABILIDAD
-from services.sheets_db import get_db, new_id, now_str
+from services.db import get_db, new_id, now_str
 
 
 def list_movements() -> pd.DataFrame:

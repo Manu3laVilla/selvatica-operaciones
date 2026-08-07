@@ -189,14 +189,13 @@ class SheetsDB:
         self._invalidate_sheet_cache(sheet_name)
 
 
-@lru_cache(maxsize=1)
-def get_db() -> SheetsDB:
-    return SheetsDB()
-
-
 def new_id(prefix: str) -> str:
-    return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
+    from services.db import new_id as _new_id
+
+    return _new_id(prefix)
 
 
 def now_str() -> str:
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    from services.db import now_str as _now_str
+
+    return _now_str()

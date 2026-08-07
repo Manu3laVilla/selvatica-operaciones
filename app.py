@@ -10,6 +10,7 @@ from config import (
     DEFAULT_PRODUCT_CATEGORIES,
     format_cop,
     is_preview_mode,
+    resolves_data_backend,
 )
 from services.alert_service import get_low_stock_alerts
 from services.catalog_service import (
@@ -45,7 +46,7 @@ from services.order_service import (
 )
 from services.product_service import create_product, list_products, update_product
 from services.sale_service import list_sales, sales_exist_for_order
-from services.sheets_db import get_db, new_id, now_str
+from services.db import get_db, new_id, now_str
 from ui.theme import (
     get_global_css,
     render_mobile_bottom_nav,
@@ -90,11 +91,10 @@ def init_connection() -> bool:
         return True
     except Exception as exc:
         st.session_state.preview_mode = True
-        show_alert("Modo vista previa — datos de ejemplo (sin Google Sheets)", "warning")
+        show_alert("Modo vista previa — datos de ejemplo (sin conexión a la base)", "warning")
         st.caption(
-            "Configura Streamlit Secrets (SPREADSHEET_ID y gcp_service_account) "
-            "o el archivo .env local. "
-            f"Detalle: {exc}"
+            "Configura DATABASE_URL (Supabase) o SPREADSHEET_ID + credenciales de Google "
+            f"en .env / Streamlit Secrets. Detalle: {exc}"
         )
         return True
 
@@ -1355,7 +1355,7 @@ def _render_new_order_tab(customers, products) -> None:
 def _preview_guard(action: str) -> bool:
     if st.session_state.preview_mode:
         show_alert(
-            f"Modo vista previa: no se puede {action}. Conecta Google Sheets para guardar.",
+            f"Modo vista previa: no se puede {action}. Configura la base de datos para guardar.",
             "info",
         )
         return False
@@ -1381,7 +1381,10 @@ def sidebar() -> str:
     menu = build_nav_menu(_alert_count())
     page = render_sidebar_nav(menu)
     st.sidebar.divider()
-    db_label = "Vista previa" if st.session_state.preview_mode else "Google Sheets"
+    db_label = "Vista previa" if st.session_state.preview_mode else {
+        "supabase": "Supabase",
+        "sheets": "Google Sheets",
+    }.get(resolves_data_backend() or "", "Conectado")
     st.sidebar.markdown(
         f'<div class="selv-sidebar-footer"><strong>Base de datos:</strong> {db_label}</div>',
         unsafe_allow_html=True,

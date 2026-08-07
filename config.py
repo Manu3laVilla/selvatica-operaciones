@@ -50,12 +50,45 @@ def has_google_credentials() -> bool:
     return get_service_account_info() is not None
 
 
+def get_database_url() -> str:
+    env_url = os.getenv("DATABASE_URL", "").strip()
+    if env_url:
+        return env_url
+    try:
+        import streamlit as st
+
+        return str(st.secrets.get("DATABASE_URL", "")).strip()
+    except Exception:
+        return ""
+
+
+def get_data_backend() -> str:
+    env_backend = os.getenv("DATA_BACKEND", "").strip().lower()
+    if env_backend:
+        return env_backend
+    try:
+        import streamlit as st
+
+        return str(st.secrets.get("DATA_BACKEND", "")).strip().lower()
+    except Exception:
+        return ""
+
+
+def resolves_data_backend() -> str:
+    explicit = get_data_backend()
+    if explicit in ("supabase", "sheets"):
+        return explicit
+    if get_database_url():
+        return "supabase"
+    if get_spreadsheet_id() and has_google_credentials():
+        return "sheets"
+    return ""
+
+
 def is_preview_mode() -> bool:
     if os.getenv("PREVIEW_MODE", "").lower() in ("1", "true", "yes"):
         return True
-    if not get_spreadsheet_id():
-        return True
-    return not has_google_credentials()
+    return not resolves_data_backend()
 
 SHEET_PRODUCTOS = "Productos"
 SHEET_CLIENTES = "Clientes"

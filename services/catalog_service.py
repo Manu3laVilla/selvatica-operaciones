@@ -20,7 +20,7 @@ from config import (
     SHEET_TIPOS_GASTO,
     SHEET_TIPOS_INGRESO,
 )
-from services.sheets_db import get_db, new_id, now_str
+from services.db import get_db, new_id, now_str
 
 
 def _is_active(value: Any) -> bool:

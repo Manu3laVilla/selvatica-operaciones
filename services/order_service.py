@@ -18,7 +18,7 @@ from services.sale_service import (
     reverse_sales_for_order,
     sales_exist_for_order,
 )
-from services.sheets_db import get_db, new_id, now_str
+from services.db import get_db, new_id, now_str
 
 
 def list_orders() -> pd.DataFrame:
