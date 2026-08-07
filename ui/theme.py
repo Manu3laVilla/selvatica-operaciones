@@ -331,6 +331,7 @@ def _mobile_drawer_nav_css() -> str:
             flex: 0 0 auto !important;
             width: 2.15rem !important;
             height: 2.15rem !important;
+            margin-left: auto !important;
             border-radius: 10px !important;
             background: rgba(255, 255, 255, 0.72) !important;
             border: 1px solid rgba(122, 94, 53, 0.1) !important;
@@ -1799,11 +1800,11 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
                         {"".join(links)}
                     </nav>
                 </details>
-                {icon_html}
                 <div class="selv-mobile-top-bar-copy">
                     <span class="selv-mobile-top-bar-title">{html.escape(current_label)}</span>
                     <span class="selv-mobile-top-bar-subtitle">Selvatica · Centro de operaciones</span>
                 </div>
+                {icon_html}
             </header>
         </div>
         <script>
