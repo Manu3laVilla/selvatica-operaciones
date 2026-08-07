@@ -37,7 +37,12 @@ from services.catalog_service import (
     update_product_category,
 )
 from services.customer_service import create_customer, list_customers, update_customer
-from services.finance_service import list_movements, register_movement
+from services.finance_service import (
+    format_movement_date,
+    list_movements,
+    register_movement,
+    update_movement,
+)
 from services.order_service import (
     create_order,
     get_order_items,
@@ -323,12 +328,14 @@ def _register_finance_movement(
     concepto: str,
     monto: float,
     notas: str = "",
+    *,
+    fecha=None,
 ):
     if st.session_state.preview_mode:
         _init_preview_finance()
         record = {
             "id": new_id("FIN"),
-            "fecha": now_str(),
+            "fecha": format_movement_date(fecha),
             "tipo": tipo,
             "categoria": categoria,
             "concepto": concepto.strip(),
@@ -337,7 +344,54 @@ def _register_finance_movement(
         }
         st.session_state.preview_finance.insert(0, record)
         return record
-    return register_movement(tipo, categoria, concepto, monto, notas)
+    return register_movement(
+        tipo,
+        categoria,
+        concepto,
+        monto,
+        notas,
+        fecha=fecha,
+    )
+
+
+def _update_finance_movement(movement_id: str, updates: dict) -> bool:
+    if st.session_state.preview_mode:
+        _init_preview_finance()
+        for index, record in enumerate(st.session_state.preview_finance):
+            if str(record.get("id", "")) != str(movement_id):
+                continue
+            updated = dict(record)
+            updated.update(updates)
+            if "fecha" in updates:
+                updated["fecha"] = format_movement_date(updates["fecha"])
+            if float(updated.get("monto", 0)) <= 0:
+                raise ValueError("El monto debe ser mayor a cero.")
+            if not str(updated.get("concepto", "")).strip():
+                raise ValueError("El concepto es obligatorio.")
+            if not str(updated.get("categoria", "")).strip():
+                raise ValueError("La categoría es obligatoria.")
+            st.session_state.preview_finance[index] = updated
+            return True
+        return False
+    return update_movement(movement_id, updates)
+
+
+def _movement_form_date(value) -> "date":
+    import pandas as pd
+    from datetime import date
+
+    parsed = pd.to_datetime(value, errors="coerce")
+    if pd.isna(parsed):
+        return date.today()
+    return parsed.date()
+
+
+def _movement_option_label(row) -> str:
+    movement_date = _movement_form_date(row.get("fecha")).strftime("%Y-%m-%d")
+    return (
+        f"{movement_date} | {row['tipo']} | {row['concepto']} "
+        f"({format_cop(row['monto'])}) — {row['id']}"
+    )
 
 
 def _normalize_finance_movements(movements):
@@ -2287,7 +2341,7 @@ def page_contabilidad() -> None:
     )
 
     tab = section_tabs(
-        ["Resumen", "Nuevo ingreso", "Nuevo gasto", "Movimientos"],
+        ["Resumen", "Nuevo ingreso", "Nuevo gasto", "Editar movimiento", "Movimientos"],
         "contabilidad_tabs",
     )
     movements = _finance_movements()
@@ -2325,13 +2379,16 @@ def page_contabilidad() -> None:
         )
 
     elif tab == "Nuevo ingreso":
+        from datetime import date
+
         with st.form("new_income_form", clear_on_submit=True):
-            categoria = st.selectbox("Tipo de ingreso", _income_type_names(active_only=True))
+            fecha = st.date_input("Fecha del movimiento *", value=date.today())
+            categoria = st.selectbox("Tipo de ingreso *", _income_type_names(active_only=True))
             concepto = st.text_input(
                 "Concepto *",
                 placeholder="Ej: Aporte de socios, reinversión, préstamo...",
             )
-            monto = st.number_input("Monto (COP)", min_value=0.0, step=10000.0, format="%.0f")
+            monto = st.number_input("Monto (COP) *", min_value=0.0, step=10000.0, format="%.0f")
             notas = st.text_area("Notas", placeholder="Detalles adicionales (opcional)")
 
             if st.form_submit_button("Registrar ingreso", type="primary"):
@@ -2344,7 +2401,12 @@ def page_contabilidad() -> None:
                 else:
                     try:
                         record = _register_finance_movement(
-                            "Ingreso", categoria, concepto, monto, notas
+                            "Ingreso",
+                            categoria,
+                            concepto,
+                            monto,
+                            notas,
+                            fecha=fecha,
                         )
                         queue_action_message(
                             f"Ingreso registrado correctamente: {record['concepto']} — "
@@ -2355,13 +2417,16 @@ def page_contabilidad() -> None:
                         show_alert(str(exc), "error")
 
     elif tab == "Nuevo gasto":
+        from datetime import date
+
         with st.form("new_expense_form", clear_on_submit=True):
-            categoria = st.selectbox("Tipo de gasto", _expense_type_names(active_only=True))
+            fecha = st.date_input("Fecha del movimiento *", value=date.today())
+            categoria = st.selectbox("Tipo de gasto *", _expense_type_names(active_only=True))
             concepto = st.text_input(
                 "Concepto *",
                 placeholder="Ej: Compra de insumos, equipo nuevo, pago extra...",
             )
-            monto = st.number_input("Monto (COP)", min_value=0.0, step=10000.0, format="%.0f")
+            monto = st.number_input("Monto (COP) *", min_value=0.0, step=10000.0, format="%.0f")
             notas = st.text_area("Notas", placeholder="Detalles adicionales (opcional)")
 
             if st.form_submit_button("Registrar gasto", type="primary"):
@@ -2374,7 +2439,12 @@ def page_contabilidad() -> None:
                 else:
                     try:
                         record = _register_finance_movement(
-                            "Gasto", categoria, concepto, monto, notas
+                            "Gasto",
+                            categoria,
+                            concepto,
+                            monto,
+                            notas,
+                            fecha=fecha,
                         )
                         queue_action_message(
                             f"Gasto registrado correctamente: {record['concepto']} — "
@@ -2383,6 +2453,82 @@ def page_contabilidad() -> None:
                         st.rerun()
                     except Exception as exc:
                         show_alert(str(exc), "error")
+
+    elif tab == "Editar movimiento":
+        if movements.empty:
+            show_alert("No hay movimientos para editar.", "info")
+        else:
+            normalized = _normalize_finance_movements(movements)
+            movement_options = {
+                _movement_option_label(row): row["id"]
+                for _, row in normalized.iterrows()
+            }
+            selected = st.selectbox("Selecciona movimiento", list(movement_options.keys()))
+            movement_id = movement_options[selected]
+            current = normalized[normalized["id"].astype(str) == str(movement_id)].iloc[0]
+            current_tipo = str(current.get("tipo", "Ingreso"))
+            current_category = str(current.get("categoria", ""))
+
+            tipo = st.selectbox(
+                "Tipo de movimiento *",
+                ["Ingreso", "Gasto"],
+                index=0 if current_tipo == "Ingreso" else 1,
+                key=f"edit_finance_tipo_{movement_id}",
+            )
+            edit_categories = (
+                _income_type_names(active_only=False)
+                if tipo == "Ingreso"
+                else _expense_type_names(active_only=False)
+            )
+            if current_category and current_category not in edit_categories:
+                edit_categories = [current_category] + edit_categories
+
+            with st.form("edit_finance_form"):
+                fecha = st.date_input(
+                    "Fecha del movimiento *",
+                    value=_movement_form_date(current.get("fecha")),
+                )
+                categoria = st.selectbox(
+                    "Categoría *",
+                    edit_categories,
+                    index=edit_categories.index(current_category)
+                    if current_category in edit_categories
+                    else 0,
+                )
+                concepto = st.text_input("Concepto *", value=str(current.get("concepto", "")))
+                monto = st.number_input(
+                    "Monto (COP) *",
+                    min_value=0.0,
+                    step=10000.0,
+                    format="%.0f",
+                    value=float(current.get("monto", 0)),
+                )
+                notas = st.text_area("Notas", value=str(current.get("notas", "")))
+
+                if st.form_submit_button("Actualizar movimiento", type="primary"):
+                    if not _preview_guard("editar movimientos"):
+                        pass
+                    elif not concepto.strip():
+                        show_alert("El concepto es obligatorio.", "error")
+                    elif monto <= 0:
+                        show_alert("El monto debe ser mayor a cero.", "error")
+                    else:
+                        try:
+                            _update_finance_movement(
+                                movement_id,
+                                {
+                                    "fecha": fecha,
+                                    "tipo": tipo,
+                                    "categoria": categoria,
+                                    "concepto": concepto,
+                                    "monto": monto,
+                                    "notas": notas,
+                                },
+                            )
+                            queue_action_message("Movimiento actualizado correctamente.")
+                            st.rerun()
+                        except Exception as exc:
+                            show_alert(str(exc), "error")
 
     elif tab == "Movimientos":
         if movements.empty:
