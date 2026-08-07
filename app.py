@@ -4,14 +4,37 @@ import json
 
 import demo_data
 from config import (
-    ACCESSORY_CATEGORIES,
-    EXPENSE_CATEGORIES,
-    INCOME_CATEGORIES,
-    ORDER_STATES,
+    DEFAULT_EXPENSE_TYPES,
+    DEFAULT_INCOME_TYPES,
+    DEFAULT_ORDER_STATES,
+    DEFAULT_PRODUCT_CATEGORIES,
     format_cop,
     is_preview_mode,
 )
 from services.alert_service import get_low_stock_alerts
+from services.catalog_service import (
+    create_expense_type,
+    create_income_type,
+    create_order_state,
+    create_product_category,
+    delete_expense_type,
+    delete_income_type,
+    delete_order_state,
+    delete_product_category,
+    ensure_catalog_defaults,
+    expense_type_names,
+    income_type_names,
+    list_expense_types,
+    list_income_types,
+    list_order_states,
+    list_product_categories,
+    state_generates_sale,
+    state_reverses_sale,
+    update_expense_type,
+    update_income_type,
+    update_order_state,
+    update_product_category,
+)
 from services.customer_service import create_customer, list_customers, update_customer
 from services.finance_service import list_movements, register_movement
 from services.order_service import (
@@ -21,7 +44,7 @@ from services.order_service import (
     update_order_status,
 )
 from services.product_service import create_product, list_products, update_product
-from services.sale_service import list_sales
+from services.sale_service import list_sales, sales_exist_for_order
 from services.sheets_db import get_db, new_id, now_str
 from ui.theme import (
     get_global_css,
@@ -60,6 +83,7 @@ def init_connection() -> bool:
 
     try:
         get_db().connect()
+        ensure_catalog_defaults()
         st.session_state.preview_mode = False
         return True
     except Exception as exc:
@@ -71,6 +95,156 @@ def init_connection() -> bool:
             f"Detalle: {exc}"
         )
         return True
+
+
+def _catalog_is_active(value) -> bool:
+    return str(value).strip().lower() in ("si", "sí", "true", "1", "yes")
+
+
+def _init_preview_catalogs() -> None:
+    if st.session_state.get("preview_catalogs_ready"):
+        return
+
+    st.session_state.preview_catalogs = {
+        "categorias": [
+            {
+                "id": f"CAT-P{i:02d}",
+                "nombre": name,
+                "activo": "Si",
+                "orden": i,
+                "fecha_registro": "2026-08-01 10:00:00",
+            }
+            for i, name in enumerate(DEFAULT_PRODUCT_CATEGORIES, start=1)
+        ],
+        "tipos_ingreso": [
+            {
+                "id": f"ING-P{i:02d}",
+                "nombre": name,
+                "activo": "Si",
+                "orden": i,
+                "fecha_registro": "2026-08-01 10:00:00",
+            }
+            for i, name in enumerate(DEFAULT_INCOME_TYPES, start=1)
+        ],
+        "tipos_gasto": [
+            {
+                "id": f"GAS-P{i:02d}",
+                "nombre": name,
+                "activo": "Si",
+                "orden": i,
+                "fecha_registro": "2026-08-01 10:00:00",
+            }
+            for i, name in enumerate(DEFAULT_EXPENSE_TYPES, start=1)
+        ],
+        "estados_pedido": [
+            {
+                "id": f"EST-P{i:02d}",
+                "nombre": state["nombre"],
+                "activo": "Si",
+                "orden": i,
+                "genera_venta": state["genera_venta"],
+                "revierte_venta": state["revierte_venta"],
+                "fecha_registro": "2026-08-01 10:00:00",
+            }
+            for i, state in enumerate(DEFAULT_ORDER_STATES, start=1)
+        ],
+    }
+    st.session_state.preview_catalogs_ready = True
+
+
+def _preview_catalog_df(key: str):
+    import pandas as pd
+
+    _init_preview_catalogs()
+    return pd.DataFrame(st.session_state.preview_catalogs[key])
+
+
+def _product_categories_df(active_only: bool = False):
+    if st.session_state.preview_mode:
+        df = _preview_catalog_df("categorias")
+    else:
+        df = list_product_categories(active_only=False)
+    if active_only and not df.empty:
+        df = df[df["activo"].map(_catalog_is_active)]
+    return df.sort_values("orden") if not df.empty and "orden" in df.columns else df
+
+
+def _income_types_df(active_only: bool = False):
+    if st.session_state.preview_mode:
+        df = _preview_catalog_df("tipos_ingreso")
+    else:
+        df = list_income_types(active_only=False)
+    if active_only and not df.empty:
+        df = df[df["activo"].map(_catalog_is_active)]
+    return df.sort_values("orden") if not df.empty and "orden" in df.columns else df
+
+
+def _expense_types_df(active_only: bool = False):
+    if st.session_state.preview_mode:
+        df = _preview_catalog_df("tipos_gasto")
+    else:
+        df = list_expense_types(active_only=False)
+    if active_only and not df.empty:
+        df = df[df["activo"].map(_catalog_is_active)]
+    return df.sort_values("orden") if not df.empty and "orden" in df.columns else df
+
+
+def _order_states_df(active_only: bool = False):
+    if st.session_state.preview_mode:
+        df = _preview_catalog_df("estados_pedido")
+    else:
+        df = list_order_states(active_only=False)
+    if active_only and not df.empty:
+        df = df[df["activo"].map(_catalog_is_active)]
+    return df.sort_values("orden") if not df.empty and "orden" in df.columns else df
+
+
+def _product_category_names(active_only: bool = True) -> list[str]:
+    df = _product_categories_df(active_only=active_only)
+    if df.empty:
+        return list(DEFAULT_PRODUCT_CATEGORIES)
+    return df["nombre"].astype(str).tolist()
+
+
+def _income_type_names(active_only: bool = True) -> list[str]:
+    df = _income_types_df(active_only=active_only)
+    if df.empty:
+        return list(DEFAULT_INCOME_TYPES)
+    return df["nombre"].astype(str).tolist()
+
+
+def _expense_type_names(active_only: bool = True) -> list[str]:
+    df = _expense_types_df(active_only=active_only)
+    if df.empty:
+        return list(DEFAULT_EXPENSE_TYPES)
+    return df["nombre"].astype(str).tolist()
+
+
+def _order_state_names(active_only: bool = True) -> list[str]:
+    df = _order_states_df(active_only=active_only)
+    if df.empty:
+        return [state["nombre"] for state in DEFAULT_ORDER_STATES]
+    return df["nombre"].astype(str).tolist()
+
+
+def _order_state_generates_sale(state_name: str) -> bool:
+    if st.session_state.preview_mode:
+        df = _order_states_df()
+        match = df[df["nombre"].astype(str) == str(state_name)]
+        if match.empty:
+            return state_name == "Entregado"
+        return _catalog_is_active(match.iloc[0].get("genera_venta", "No"))
+    return state_generates_sale(state_name)
+
+
+def _order_state_reverses_sale(state_name: str) -> bool:
+    if st.session_state.preview_mode:
+        df = _order_states_df()
+        match = df[df["nombre"].astype(str) == str(state_name)]
+        if match.empty:
+            return state_name == "Cancelado"
+        return _catalog_is_active(match.iloc[0].get("revierte_venta", "No"))
+    return state_reverses_sale(state_name)
 
 
 def _products(active_only: bool = False):
@@ -504,12 +678,12 @@ def _render_dashboard_filters(sales, orders, products):
         )
     else:
         categories_in_data = []
-    cat_options = ["Todas", *(categories_in_data or ACCESSORY_CATEGORIES)]
+    cat_options = ["Todas", *(categories_in_data or _product_category_names(active_only=False))]
 
     if not orders.empty:
         states_in_data = sorted(orders["estado"].dropna().unique().tolist())
     else:
-        states_in_data = list(ORDER_STATES)
+        states_in_data = list(_order_state_names(active_only=False))
     state_options = ["Todos", *states_in_data]
 
     st.markdown(
@@ -866,9 +1040,43 @@ def _register_sales_from_order_preview(order: dict, items: list) -> list:
     return created
 
 
+def _sales_exist_for_order(order_id: str) -> bool:
+    if st.session_state.preview_mode:
+        _init_preview_sales()
+        order_key = str(order_id).strip()
+        return any(
+            str(sale.get("pedido_id", "")).strip() == order_key
+            for sale in st.session_state.preview_sales
+        )
+    return sales_exist_for_order(order_id)
+
+
+def _reverse_sales_from_order_preview(order_id: str) -> None:
+    _init_preview_sales()
+    order_key = str(order_id).strip()
+    remaining = [
+        sale
+        for sale in st.session_state.preview_sales
+        if str(sale.get("pedido_id", "")).strip() != order_key
+    ]
+    removed = [
+        sale
+        for sale in st.session_state.preview_sales
+        if str(sale.get("pedido_id", "")).strip() == order_key
+    ]
+    for sale in removed:
+        try:
+            from services.product_service import adjust_stock
+
+            adjust_stock(str(sale["producto_id"]), int(sale["cantidad"]))
+        except Exception:
+            pass
+    st.session_state.preview_sales = remaining
+
+
 def _update_order_status(order_id: str, new_status: str) -> bool:
-    if new_status not in ORDER_STATES:
-        raise ValueError(f"Estado inválido. Usa uno de: {', '.join(ORDER_STATES)}")
+    if new_status not in _order_state_names(active_only=True):
+        raise ValueError(f"Estado inválido o inactivo: {new_status}")
 
     if st.session_state.preview_mode:
         _init_preview_orders()
@@ -876,13 +1084,15 @@ def _update_order_status(order_id: str, new_status: str) -> bool:
             if str(order.get("id", "")) != str(order_id):
                 continue
 
-            previous_status = str(order.get("estado", ""))
             order["estado"] = new_status
             order["fecha_actualizacion"] = now_str()
             st.session_state.preview_orders[index] = order
+            items = _order_items(order_id)
 
-            if previous_status != "Entregado" and new_status == "Entregado":
-                _register_sales_from_order_preview(order, _order_items(order_id))
+            if _order_state_generates_sale(new_status) and not _sales_exist_for_order(order_id):
+                _register_sales_from_order_preview(order, items)
+            if _order_state_reverses_sale(new_status) and _sales_exist_for_order(order_id):
+                _reverse_sales_from_order_preview(order_id)
             return True
         return False
 
@@ -1144,6 +1354,7 @@ def build_nav_menu(alerts: int) -> dict[str, str]:
         "Contabilidad": "contabilidad",
         "Pedidos": "pedidos",
         f"Alertas de stock ({alerts})": "alertas",
+        "Administración": "administracion",
     }
 
 
@@ -1232,7 +1443,7 @@ def page_products() -> None:
             nombre = c1.text_input("Nombre *", placeholder="Ej: Collar con perlas")
             categoria = c2.selectbox(
                 "Categoría",
-                ACCESSORY_CATEGORIES,
+                _product_category_names(active_only=True),
                 index=0,
             )
             descripcion = st.text_area(
@@ -1275,7 +1486,7 @@ def page_products() -> None:
             current = products[products["id"] == product_id].iloc[0]
 
             current_category = str(current.get("categoria", ""))
-            category_options = list(ACCESSORY_CATEGORIES)
+            category_options = _product_category_names(active_only=False)
             if current_category and current_category not in category_options:
                 category_options = [current_category] + category_options
 
@@ -1528,7 +1739,7 @@ def page_orders() -> None:
                     paginate=False,
                 )
 
-            new_status = st.selectbox("Nuevo estado", ORDER_STATES)
+            new_status = st.selectbox("Nuevo estado", _order_state_names(active_only=True))
             if st.button("Actualizar estado", type="primary"):
                 try:
                     if _update_order_status(order_id, new_status):
@@ -1558,6 +1769,354 @@ def page_alerts() -> None:
             ],
             key="alerts_table",
         )
+
+
+def _render_catalog_list_table(df, *, key: str) -> None:
+    if df.empty:
+        show_alert("No hay registros en este catálogo.", "info")
+        return
+    display = df.copy()
+    if "genera_venta" in display.columns:
+        display["genera_venta"] = display["genera_venta"].map(
+            lambda v: "Sí" if _catalog_is_active(v) else "No"
+        )
+    if "revierte_venta" in display.columns:
+        display["revierte_venta"] = display["revierte_venta"].map(
+            lambda v: "Sí" if _catalog_is_active(v) else "No"
+        )
+    render_table(display, key=key, paginate=False)
+
+
+def _render_simple_catalog_admin(
+    *,
+    title: str,
+    list_df_fn,
+    create_fn,
+    update_fn,
+    delete_fn,
+    preview_key: str,
+    table_key: str,
+) -> None:
+    st.caption(
+        f"Gestiona {title.lower()}. Los registros inactivos no aparecen al crear o editar "
+        "productos, ingresos o gastos."
+    )
+
+    tab = section_tabs(["Listado", "Nuevo", "Editar", "Eliminar"], f"admin_{preview_key}_tabs")
+
+    if tab == "Listado":
+        _render_catalog_list_table(list_df_fn(), key=table_key)
+
+    elif tab == "Nuevo":
+        with st.form(f"admin_new_{preview_key}"):
+            nombre = st.text_input("Nombre *")
+            if st.form_submit_button("Crear", type="primary"):
+                if not _preview_guard(f"crear {title.lower()}"):
+                    pass
+                elif not nombre.strip():
+                    show_alert("El nombre es obligatorio.", "error")
+                else:
+                    try:
+                        if st.session_state.preview_mode:
+                            _init_preview_catalogs()
+                            items = st.session_state.preview_catalogs[preview_key]
+                            if any(
+                                str(item["nombre"]).strip().lower() == nombre.strip().lower()
+                                for item in items
+                            ):
+                                raise ValueError(f"Ya existe «{nombre.strip()}».")
+                            items.append(
+                                {
+                                    "id": new_id("CAT"),
+                                    "nombre": nombre.strip(),
+                                    "activo": "Si",
+                                    "orden": len(items) + 1,
+                                    "fecha_registro": now_str(),
+                                }
+                            )
+                        else:
+                            create_fn(nombre.strip())
+                        show_alert(f"«{nombre.strip()}» creado correctamente.", "success")
+                        st.rerun()
+                    except Exception as exc:
+                        show_alert(str(exc), "error")
+
+    elif tab == "Editar":
+        df = list_df_fn()
+        if df.empty:
+            show_alert("No hay registros para editar.", "info")
+        else:
+            options = {
+                f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
+            }
+            selected = st.selectbox("Selecciona registro", list(options.keys()))
+            item_id = options[selected]
+            current = df[df["id"].astype(str) == str(item_id)].iloc[0]
+
+            with st.form(f"admin_edit_{preview_key}"):
+                nombre = st.text_input("Nombre", value=str(current["nombre"]))
+                activo = st.selectbox(
+                    "Activo",
+                    ["Si", "No"],
+                    index=0 if _catalog_is_active(current.get("activo", "Si")) else 1,
+                )
+                orden = st.number_input(
+                    "Orden",
+                    min_value=1,
+                    step=1,
+                    value=int(current.get("orden", 1)),
+                )
+                if st.form_submit_button("Actualizar", type="primary"):
+                    if not _preview_guard(f"editar {title.lower()}"):
+                        pass
+                    else:
+                        try:
+                            updates = {
+                                "nombre": nombre,
+                                "activo": activo,
+                                "orden": orden,
+                            }
+                            if st.session_state.preview_mode:
+                                _init_preview_catalogs()
+                                for item in st.session_state.preview_catalogs[preview_key]:
+                                    if str(item["id"]) == str(item_id):
+                                        item.update(updates)
+                                        break
+                            else:
+                                update_fn(item_id, updates)
+                            show_alert("Registro actualizado.", "success")
+                            st.rerun()
+                        except Exception as exc:
+                            show_alert(str(exc), "error")
+
+    elif tab == "Eliminar":
+        df = list_df_fn()
+        if df.empty:
+            show_alert("No hay registros para eliminar.", "info")
+        else:
+            options = {
+                f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
+            }
+            selected = st.selectbox("Selecciona registro", list(options.keys()))
+            item_id = options[selected]
+            if st.button("Eliminar permanentemente", type="primary"):
+                if not _preview_guard(f"eliminar {title.lower()}"):
+                    pass
+                else:
+                    try:
+                        if st.session_state.preview_mode:
+                            _init_preview_catalogs()
+                            st.session_state.preview_catalogs[preview_key] = [
+                                item
+                                for item in st.session_state.preview_catalogs[preview_key]
+                                if str(item["id"]) != str(item_id)
+                            ]
+                        else:
+                            delete_fn(item_id)
+                        show_alert("Registro eliminado.", "success")
+                        st.rerun()
+                    except Exception as exc:
+                        show_alert(str(exc), "error")
+
+
+def _render_order_states_admin() -> None:
+    st.caption(
+        "Configura el flujo de pedidos. Marca «Genera venta» en los estados que registran "
+        "la venta y descuentan stock. Marca «Revierte venta» en los estados que anulan "
+        "una venta ya registrada y devuelven el stock."
+    )
+
+    tab = section_tabs(
+        ["Listado", "Nuevo", "Editar", "Eliminar"],
+        "admin_order_states_tabs",
+    )
+
+    if tab == "Listado":
+        _render_catalog_list_table(_order_states_df(), key="admin_order_states_table")
+
+    elif tab == "Nuevo":
+        with st.form("admin_new_order_state"):
+            nombre = st.text_input("Nombre del estado *")
+            c1, c2 = st.columns(2)
+            genera_venta = c1.checkbox("Genera venta efectiva", value=False)
+            revierte_venta = c2.checkbox("Revierte venta si ya se registró", value=False)
+            if st.form_submit_button("Crear estado", type="primary"):
+                if not _preview_guard("crear estados de pedido"):
+                    pass
+                elif not nombre.strip():
+                    show_alert("El nombre es obligatorio.", "error")
+                else:
+                    try:
+                        if st.session_state.preview_mode:
+                            _init_preview_catalogs()
+                            items = st.session_state.preview_catalogs["estados_pedido"]
+                            items.append(
+                                {
+                                    "id": new_id("EST"),
+                                    "nombre": nombre.strip(),
+                                    "activo": "Si",
+                                    "orden": len(items) + 1,
+                                    "genera_venta": "Si" if genera_venta else "No",
+                                    "revierte_venta": "Si" if revierte_venta else "No",
+                                    "fecha_registro": now_str(),
+                                }
+                            )
+                        else:
+                            create_order_state(
+                                nombre.strip(),
+                                genera_venta=genera_venta,
+                                revierte_venta=revierte_venta,
+                            )
+                        show_alert(f"Estado «{nombre.strip()}» creado.", "success")
+                        st.rerun()
+                    except Exception as exc:
+                        show_alert(str(exc), "error")
+
+    elif tab == "Editar":
+        df = _order_states_df()
+        if df.empty:
+            show_alert("No hay estados para editar.", "info")
+        else:
+            options = {
+                f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
+            }
+            selected = st.selectbox("Selecciona estado", list(options.keys()))
+            item_id = options[selected]
+            current = df[df["id"].astype(str) == str(item_id)].iloc[0]
+
+            with st.form("admin_edit_order_state"):
+                nombre = st.text_input("Nombre", value=str(current["nombre"]))
+                activo = st.selectbox(
+                    "Activo",
+                    ["Si", "No"],
+                    index=0 if _catalog_is_active(current.get("activo", "Si")) else 1,
+                )
+                orden = st.number_input(
+                    "Orden",
+                    min_value=1,
+                    step=1,
+                    value=int(current.get("orden", 1)),
+                )
+                c1, c2 = st.columns(2)
+                genera_venta = c1.checkbox(
+                    "Genera venta efectiva",
+                    value=_catalog_is_active(current.get("genera_venta", "No")),
+                )
+                revierte_venta = c2.checkbox(
+                    "Revierte venta si ya se registró",
+                    value=_catalog_is_active(current.get("revierte_venta", "No")),
+                )
+                if st.form_submit_button("Actualizar estado", type="primary"):
+                    if not _preview_guard("editar estados de pedido"):
+                        pass
+                    else:
+                        try:
+                            updates = {
+                                "nombre": nombre,
+                                "activo": activo,
+                                "orden": orden,
+                                "genera_venta": "Si" if genera_venta else "No",
+                                "revierte_venta": "Si" if revierte_venta else "No",
+                            }
+                            if st.session_state.preview_mode:
+                                _init_preview_catalogs()
+                                for item in st.session_state.preview_catalogs["estados_pedido"]:
+                                    if str(item["id"]) == str(item_id):
+                                        item.update(updates)
+                                        break
+                            else:
+                                update_order_state(item_id, updates)
+                            show_alert("Estado actualizado.", "success")
+                            st.rerun()
+                        except Exception as exc:
+                            show_alert(str(exc), "error")
+
+    elif tab == "Eliminar":
+        df = _order_states_df()
+        if df.empty:
+            show_alert("No hay estados para eliminar.", "info")
+        else:
+            options = {
+                f"{row['nombre']} ({row['id']})": row["id"] for _, row in df.iterrows()
+            }
+            selected = st.selectbox("Selecciona estado", list(options.keys()))
+            item_id = options[selected]
+            if st.button("Eliminar estado", type="primary"):
+                if not _preview_guard("eliminar estados de pedido"):
+                    pass
+                else:
+                    try:
+                        if st.session_state.preview_mode:
+                            _init_preview_catalogs()
+                            active = [
+                                item
+                                for item in st.session_state.preview_catalogs["estados_pedido"]
+                                if _catalog_is_active(item.get("activo", "Si"))
+                            ]
+                            if len(active) <= 1:
+                                raise ValueError("Debe quedar al menos un estado activo.")
+                            st.session_state.preview_catalogs["estados_pedido"] = [
+                                item
+                                for item in st.session_state.preview_catalogs["estados_pedido"]
+                                if str(item["id"]) != str(item_id)
+                            ]
+                        else:
+                            delete_order_state(item_id)
+                        show_alert("Estado eliminado.", "success")
+                        st.rerun()
+                    except Exception as exc:
+                        show_alert(str(exc), "error")
+
+
+def page_administration() -> None:
+    render_page_header(
+        "Administración",
+        "Catálogos del sistema: categorías, tipos de movimiento y estados de pedido",
+        "administracion",
+    )
+
+    section = section_tabs(
+        [
+            "Categorías de producto",
+            "Tipos de ingreso",
+            "Tipos de gasto",
+            "Estados de pedido",
+        ],
+        "admin_main_tabs",
+    )
+
+    if section == "Categorías de producto":
+        _render_simple_catalog_admin(
+            title="Categorías de producto",
+            list_df_fn=_product_categories_df,
+            create_fn=create_product_category,
+            update_fn=update_product_category,
+            delete_fn=delete_product_category,
+            preview_key="categorias",
+            table_key="admin_product_categories_table",
+        )
+    elif section == "Tipos de ingreso":
+        _render_simple_catalog_admin(
+            title="Tipos de ingreso",
+            list_df_fn=_income_types_df,
+            create_fn=create_income_type,
+            update_fn=update_income_type,
+            delete_fn=delete_income_type,
+            preview_key="tipos_ingreso",
+            table_key="admin_income_types_table",
+        )
+    elif section == "Tipos de gasto":
+        _render_simple_catalog_admin(
+            title="Tipos de gasto",
+            list_df_fn=_expense_types_df,
+            create_fn=create_expense_type,
+            update_fn=update_expense_type,
+            delete_fn=delete_expense_type,
+            preview_key="tipos_gasto",
+            table_key="admin_expense_types_table",
+        )
+    elif section == "Estados de pedido":
+        _render_order_states_admin()
 
 
 def page_contabilidad() -> None:
@@ -1603,7 +2162,7 @@ def page_contabilidad() -> None:
 
     elif tab == "Nuevo ingreso":
         with st.form("new_income_form", clear_on_submit=True):
-            categoria = st.selectbox("Tipo de ingreso", INCOME_CATEGORIES)
+            categoria = st.selectbox("Tipo de ingreso", _income_type_names(active_only=True))
             concepto = st.text_input(
                 "Concepto *",
                 placeholder="Ej: Aporte de socios, reinversión, préstamo...",
@@ -1633,7 +2192,7 @@ def page_contabilidad() -> None:
 
     elif tab == "Nuevo gasto":
         with st.form("new_expense_form", clear_on_submit=True):
-            categoria = st.selectbox("Tipo de gasto", EXPENSE_CATEGORIES)
+            categoria = st.selectbox("Tipo de gasto", _expense_type_names(active_only=True))
             concepto = st.text_input(
                 "Concepto *",
                 placeholder="Ej: Compra de insumos, equipo nuevo, pago extra...",
@@ -1689,6 +2248,7 @@ def main() -> None:
         "contabilidad": page_contabilidad,
         "pedidos": page_orders,
         "alertas": page_alerts,
+        "administracion": page_administration,
     }
     pages[page]()
 

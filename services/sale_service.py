@@ -98,3 +98,28 @@ def register_sales_from_order(order: dict[str, Any], items: list[dict[str, Any]]
         created.append(sale)
 
     return created
+
+
+def reverse_sales_for_order(pedido_id: str) -> list[dict[str, Any]]:
+    db = get_db()
+    df = list_sales()
+    if df.empty or "pedido_id" not in df.columns:
+        return []
+
+    matches = df[df["pedido_id"].astype(str).str.strip() == str(pedido_id).strip()]
+    if matches.empty:
+        return []
+
+    row_numbers: list[tuple[int, dict[str, Any]]] = []
+    for _, sale in matches.iterrows():
+        row_number = db.find_row_number(SHEET_VENTAS, "id", str(sale["id"]))
+        if row_number is not None:
+            row_numbers.append((row_number, sale.to_dict()))
+
+    reversed_sales: list[dict[str, Any]] = []
+    for row_number, sale in sorted(row_numbers, key=lambda item: item[0], reverse=True):
+        adjust_stock(str(sale["producto_id"]), int(sale["cantidad"]))
+        db.delete_row(SHEET_VENTAS, row_number)
+        reversed_sales.append(sale)
+
+    return reversed_sales

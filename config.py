@@ -62,17 +62,13 @@ SHEET_CLIENTES = "Clientes"
 SHEET_VENTAS = "Ventas"
 SHEET_PEDIDOS = "Pedidos"
 SHEET_CONTABILIDAD = "Contabilidad"
+SHEET_CATEGORIAS = "CategoriasProducto"
+SHEET_TIPOS_INGRESO = "TiposIngreso"
+SHEET_TIPOS_GASTO = "TiposGasto"
+SHEET_ESTADOS_PEDIDO = "EstadosPedido"
 
-ORDER_STATES = [
-    "Pendiente",
-    "Confirmado",
-    "En preparación",
-    "Enviado",
-    "Entregado",
-    "Cancelado",
-]
-
-ACCESSORY_CATEGORIES = [
+# Valores por defecto usados solo al inicializar hojas vacías en Google Sheets.
+DEFAULT_PRODUCT_CATEGORIES = [
     "Collares",
     "Pulseras",
     "Aretes",
@@ -84,20 +80,53 @@ ACCESSORY_CATEGORIES = [
     "Otros",
 ]
 
-INCOME_CATEGORIES = [
+DEFAULT_INCOME_TYPES = [
     "Capital",
     "Inversión",
     "Otro ingreso",
 ]
 
-EXPENSE_CATEGORIES = [
+DEFAULT_EXPENSE_TYPES = [
     "Insumos",
     "Equipos",
     "Gasto extra",
     "Otro gasto",
 ]
 
+DEFAULT_ORDER_STATES = [
+    {"nombre": "Pendiente", "genera_venta": "No", "revierte_venta": "No"},
+    {"nombre": "Confirmado", "genera_venta": "No", "revierte_venta": "No"},
+    {"nombre": "En preparación", "genera_venta": "No", "revierte_venta": "No"},
+    {"nombre": "Enviado", "genera_venta": "No", "revierte_venta": "No"},
+    {"nombre": "Entregado", "genera_venta": "Si", "revierte_venta": "No"},
+    {"nombre": "Cancelado", "genera_venta": "No", "revierte_venta": "Si"},
+]
+
+# Compatibilidad con código legado / vista previa sin catálogos cargados.
+ORDER_STATES = [state["nombre"] for state in DEFAULT_ORDER_STATES]
+ACCESSORY_CATEGORIES = list(DEFAULT_PRODUCT_CATEGORIES)
+INCOME_CATEGORIES = list(DEFAULT_INCOME_TYPES)
+EXPENSE_CATEGORIES = list(DEFAULT_EXPENSE_TYPES)
+
 MOVEMENT_TYPES = ["Ingreso", "Gasto"]
+
+CATALOG_SCHEMA = [
+    "id",
+    "nombre",
+    "activo",
+    "orden",
+    "fecha_registro",
+]
+
+ORDER_STATE_SCHEMA = [
+    "id",
+    "nombre",
+    "activo",
+    "orden",
+    "genera_venta",
+    "revierte_venta",
+    "fecha_registro",
+]
 
 SHEET_SCHEMAS = {
     SHEET_PRODUCTOS: [
@@ -152,6 +181,10 @@ SHEET_SCHEMAS = {
         "monto",
         "notas",
     ],
+    SHEET_CATEGORIAS: list(CATALOG_SCHEMA),
+    SHEET_TIPOS_INGRESO: list(CATALOG_SCHEMA),
+    SHEET_TIPOS_GASTO: list(CATALOG_SCHEMA),
+    SHEET_ESTADOS_PEDIDO: list(ORDER_STATE_SCHEMA),
 }
 
 CURRENCY_CODE = "COP"

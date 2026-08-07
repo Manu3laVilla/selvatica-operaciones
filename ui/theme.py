@@ -32,6 +32,7 @@ SIDEBAR_NAV_ORDER = [
     "contabilidad",
     "pedidos",
     "alertas",
+    "administracion",
 ]
 
 SIDEBAR_NAV_ICONS = {
@@ -42,6 +43,7 @@ SIDEBAR_NAV_ICONS = {
     "contabilidad": "M3 7h18v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7zm16 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v2m-4 4h8",
     "pedidos": "M6 3h12v18H6V3zm2 7h8m-8 4h8",
     "alertas": "M12 3a5 5 0 00-5 5v3l-2 2h14l-2-2V8a5 5 0 00-5-5zm-1 15h2",
+    "administracion": "M12 2a3 3 0 00-3 3v1H6a2 2 0 00-2 2v11a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-3V5a3 3 0 00-3-3zm0 2a1 1 0 011 1v1h-2V5a1 1 0 011-1zm-6 5h12v9H6V9z",
 }
 
 MOBILE_NAV_LABELS = {
@@ -52,6 +54,7 @@ MOBILE_NAV_LABELS = {
     "contabilidad": "Contabilidad",
     "pedidos": "Pedidos",
     "alertas": "Alertas",
+    "administracion": "Admin",
 }
 
 
