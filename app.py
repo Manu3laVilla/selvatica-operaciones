@@ -29,6 +29,7 @@ from ui.theme import (
     render_page_header,
     render_sidebar_branding,
     render_sidebar_expand_lock,
+    render_streamlit_chrome_hide_script,
     render_sidebar_nav,
     render_table,
     section_tabs,
@@ -46,6 +47,7 @@ st.set_page_config(
 
 sync_sidebar_compact_state()
 st.markdown(f"<style>{get_global_css()}</style>", unsafe_allow_html=True)
+render_streamlit_chrome_hide_script()
 render_sidebar_expand_lock()
 
 if "preview_mode" not in st.session_state:
@@ -944,6 +946,185 @@ def _order_items(order_id: str):
     return get_order_items(order_id)
 
 
+def _init_order_draft() -> None:
+    if "order_draft_items" not in st.session_state:
+        st.session_state.order_draft_items = []
+
+
+def _clear_order_draft() -> None:
+    st.session_state.order_draft_items = []
+
+
+def _product_order_option_label(row) -> str:
+    parts = [str(row["id"]), str(row["nombre"])]
+    categoria = str(row.get("categoria", "")).strip()
+    if categoria:
+        parts.append(categoria)
+    descripcion = str(row.get("descripcion", "")).strip()
+    if descripcion:
+        parts.append(descripcion)
+    stock_raw = row.get("stock", 0)
+    try:
+        stock = int(float(stock_raw))
+    except (TypeError, ValueError):
+        stock = 0
+    return f"{' | '.join(parts)} | {format_cop(row['precio'])} (stock: {stock})"
+
+
+def _compose_order_notes(direccion: str, notas: str) -> str:
+    parts: list[str] = []
+    if direccion.strip():
+        parts.append(f"Dirección de entrega: {direccion.strip()}")
+    if notas.strip():
+        parts.append(notas.strip())
+    return "\n".join(parts)
+
+
+def _order_draft_quantity(producto_id: str) -> int:
+    return sum(
+        int(item["cantidad"])
+        for item in st.session_state.order_draft_items
+        if str(item["producto_id"]) == str(producto_id)
+    )
+
+
+def _add_order_draft_item(producto_id: str, producto_nombre: str, cantidad: int) -> None:
+    for item in st.session_state.order_draft_items:
+        if str(item["producto_id"]) == str(producto_id):
+            item["cantidad"] = int(item["cantidad"]) + cantidad
+            return
+    st.session_state.order_draft_items.append(
+        {
+            "producto_id": producto_id,
+            "producto_nombre": producto_nombre,
+            "cantidad": cantidad,
+        }
+    )
+
+
+def _render_order_draft_table(products) -> float:
+    import pandas as pd
+
+    if not st.session_state.order_draft_items:
+        show_alert("Agrega uno o más accesorios al pedido.", "info")
+        return 0.0
+
+    rows = []
+    total = 0.0
+    for index, item in enumerate(st.session_state.order_draft_items):
+        match = products[products["id"].astype(str) == str(item["producto_id"])]
+        price = float(match.iloc[0]["precio"]) if not match.empty else 0.0
+        qty = int(item["cantidad"])
+        subtotal = price * qty
+        total += subtotal
+        rows.append(
+            {
+                "#": index + 1,
+                "Accesorio": item["producto_nombre"],
+                "Cantidad": qty,
+                "Precio unitario": format_cop(price),
+                "Subtotal": format_cop(subtotal),
+            }
+        )
+
+    render_table(rows, key="order_draft_table", paginate=False)
+    st.metric("Total del pedido", format_cop(total))
+    return total
+
+
+def _render_new_order_tab(customers, products) -> None:
+    import pandas as pd
+
+    _init_order_draft()
+
+    customer_options = {
+        f"{row['nombre']} ({row['id']})": (row["id"], row["nombre"])
+        for _, row in customers.iterrows()
+    }
+    product_options = {
+        _product_order_option_label(row): (row["id"], row["nombre"])
+        for _, row in products.iterrows()
+    }
+
+    customer_label = st.selectbox("Cliente", list(customer_options.keys()), key="order_draft_customer")
+    direccion = st.text_input("Dirección de entrega", key="order_draft_address")
+    notas = st.text_area("Notas", key="order_draft_notes")
+
+    st.subheader("Productos del pedido")
+    col_product, col_qty, col_add = st.columns([3, 1, 1])
+    with col_product:
+        product_label = st.selectbox("Producto", list(product_options.keys()), key="order_draft_product")
+    with col_qty:
+        cantidad = st.number_input("Cantidad", min_value=1, step=1, key="order_draft_qty")
+    with col_add:
+        st.markdown('<div style="margin-top: 1.75rem;"></div>', unsafe_allow_html=True)
+        if st.button("Agregar", key="order_draft_add", use_container_width=True):
+            producto_id, producto_nombre = product_options[product_label]
+            match = products[products["id"].astype(str) == str(producto_id)]
+            if match.empty:
+                show_alert("Producto no encontrado.", "error")
+            else:
+                stock = int(pd.to_numeric(match.iloc[0].get("stock", 0), errors="coerce") or 0)
+                draft_qty = _order_draft_quantity(producto_id)
+                if draft_qty + cantidad > stock:
+                    show_alert(
+                        f"Stock insuficiente para {producto_nombre}. "
+                        f"Disponible: {stock}, en el pedido: {draft_qty + cantidad}.",
+                        "warning",
+                    )
+                else:
+                    _add_order_draft_item(producto_id, producto_nombre, cantidad)
+                    st.rerun()
+
+    _render_order_draft_table(products)
+
+    if st.session_state.order_draft_items:
+        remove_labels = {
+            f"{item['producto_nombre']} (x{item['cantidad']})": index
+            for index, item in enumerate(st.session_state.order_draft_items)
+        }
+        col_remove, col_spacer = st.columns([2, 3])
+        with col_remove:
+            remove_label = st.selectbox(
+                "Quitar producto",
+                ["—"] + list(remove_labels.keys()),
+                key="order_draft_remove_select",
+            )
+            if st.button("Quitar del pedido", key="order_draft_remove_btn"):
+                if remove_label != "—":
+                    st.session_state.order_draft_items.pop(remove_labels[remove_label])
+                    st.rerun()
+
+    if st.button("Crear pedido", type="primary", key="order_draft_submit"):
+        if not _preview_guard("crear pedidos"):
+            return
+        if not st.session_state.order_draft_items:
+            show_alert("Agrega al menos un producto al pedido.", "error")
+            return
+
+        cliente_id, cliente_nombre = customer_options[customer_label]
+        items = [
+            {"producto_id": item["producto_id"], "cantidad": int(item["cantidad"])}
+            for item in st.session_state.order_draft_items
+        ]
+        try:
+            order = create_order(
+                cliente_id,
+                cliente_nombre,
+                items,
+                notas=_compose_order_notes(direccion, notas),
+            )
+            _clear_order_draft()
+            show_alert(
+                f"Pedido creado: {order['id']} — {len(items)} producto(s), "
+                f"total {format_cop(order['total'])}",
+                "success",
+            )
+            st.rerun()
+        except Exception as exc:
+            show_alert(str(exc), "error")
+
+
 def _preview_guard(action: str) -> bool:
     if st.session_state.preview_mode:
         show_alert(
@@ -1318,42 +1499,7 @@ def page_orders() -> None:
         if customers.empty or products.empty:
             show_alert("Necesitas clientes y accesorios para crear pedidos.", "warning")
         else:
-            customer_options = {
-                f"{row['nombre']} ({row['id']})": (row["id"], row["nombre"])
-                for _, row in customers.iterrows()
-            }
-            product_options = {
-                f"{row['nombre']} ({format_cop(row['precio'])})": row["id"]
-                for _, row in products.iterrows()
-            }
-
-            with st.form("new_order_form"):
-                customer_label = st.selectbox("Cliente", list(customer_options.keys()))
-                product_label = st.selectbox("Accesorio", list(product_options.keys()))
-                cantidad = st.number_input("Cantidad", min_value=1, step=1)
-                notas = st.text_area("Notas del pedido")
-
-                if st.form_submit_button("Crear pedido", type="primary"):
-                    if not _preview_guard("crear pedidos"):
-                        pass
-                    else:
-                        cliente_id, cliente_nombre = customer_options[customer_label]
-                        producto_id = product_options[product_label]
-                        items = [{"producto_id": producto_id, "cantidad": cantidad}]
-                        try:
-                            order = create_order(
-                                cliente_id,
-                                cliente_nombre,
-                                items,
-                                notas=notas,
-                            )
-                            show_alert(
-                                f"Pedido creado: {order['id']} - Total {format_cop(order['total'])}",
-                                "success",
-                            )
-                            st.rerun()
-                        except Exception as exc:
-                            show_alert(str(exc), "error")
+            _render_new_order_tab(customers, products)
 
     elif tab == "Actualizar estado":
         orders = _orders()

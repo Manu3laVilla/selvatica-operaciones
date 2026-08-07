@@ -231,7 +231,7 @@ def _table_pagination_css(*, body_prefix: str = "") -> str:
     """
 
 
-def _mobile_streamlit_chrome_hide_css(body_prefix: str = "") -> str:
+def _streamlit_chrome_hide_css(body_prefix: str = "") -> str:
     return f"""
     {body_prefix}header[data-testid="stHeader"],
     {body_prefix}[data-testid="stToolbar"],
@@ -524,14 +524,11 @@ def _mobile_drawer_nav_css() -> str:
 
 
 def _mobile_bottom_bar_css() -> str:
-    streamlit_hide = _mobile_streamlit_chrome_hide_css()
     drawer_css = _mobile_drawer_nav_css()
     return f"""
     {drawer_css}
 
     @media (max-width: 768px) {{
-        {streamlit_hide}
-
         [data-testid="stSidebar"],
         [data-testid="stSidebarCollapsedControl"],
         [data-testid="stExpandSidebarButton"],
@@ -768,6 +765,9 @@ def get_global_css() -> str:
         font-family: 'Nunito', 'Segoe UI', sans-serif;
         color: {c['text']};
     }}
+
+    /* Ocultar chrome nativo de Streamlit / Cloud (desktop + móvil) */
+    {_streamlit_chrome_hide_css()}
 
     /* ── Sidebar (degradado invertido respecto al contenido) ── */
     @media (min-width: 769px) {{
@@ -1680,6 +1680,103 @@ def render_sidebar_expand_lock() -> None:
                     window.clearInterval(intervalId);
                 }
             }, 100);
+        })();
+        </script>
+        """,
+    )
+
+
+def render_streamlit_chrome_hide_script() -> None:
+    """Oculta chrome de Streamlit Cloud también en el documento padre (p. ej. Manage app)."""
+    import streamlit as st
+
+    st.html(
+        """
+        <div id="selv-streamlit-chrome-hide" hidden aria-hidden="true"></div>
+        <script>
+        (function () {
+            if (window.__selvChromeHideInit) return;
+            window.__selvChromeHideInit = true;
+
+            const SELECTORS = [
+                'header[data-testid="stHeader"]',
+                '[data-testid="stToolbar"]',
+                '[data-testid="stDecoration"]',
+                '[data-testid="stStatusWidget"]',
+                '[data-testid="stAppDeployButton"]',
+                '[data-testid="stMainMenu"]',
+                '[data-testid="stBottomBlockContainer"]',
+                'footer',
+                '[class*="viewerBadge"]',
+                '[class*="stAppDeployButton"]',
+            ];
+
+            const hideEl = (el) => {
+                if (!el || el.closest('.selv-mobile-nav-shell')) return;
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                el.style.setProperty('opacity', '0', 'important');
+                el.style.setProperty('pointer-events', 'none', 'important');
+            };
+
+            const hideManageApp = (doc) => {
+                if (!doc || !doc.querySelectorAll) return;
+                doc.querySelectorAll('button, a, [role="button"]').forEach((el) => {
+                    const text = (el.textContent || '').trim().toLowerCase();
+                    if (!text.includes('manage app')) return;
+                    let node = el;
+                    for (let depth = 0; depth < 5 && node; depth += 1) {
+                        hideEl(node);
+                        node = node.parentElement;
+                    }
+                });
+            };
+
+            const hideInDoc = (doc) => {
+                if (!doc || !doc.querySelectorAll) return;
+                SELECTORS.forEach((selector) => {
+                    doc.querySelectorAll(selector).forEach(hideEl);
+                });
+                hideManageApp(doc);
+            };
+
+            const docs = () => {
+                const seen = new Set();
+                const list = [];
+                const add = (doc) => {
+                    if (!doc || seen.has(doc)) return;
+                    seen.add(doc);
+                    list.push(doc);
+                };
+                add(document);
+                try { add(window.parent && window.parent.document); } catch (err) { /* ignore */ }
+                try { add(window.top && window.top.document); } catch (err) { /* ignore */ }
+                return list;
+            };
+
+            const run = () => docs().forEach(hideInDoc);
+
+            run();
+            document.addEventListener('DOMContentLoaded', run);
+            window.addEventListener('load', run);
+
+            docs().forEach((doc) => {
+                try {
+                    new MutationObserver(run).observe(doc.documentElement, {
+                        childList: true,
+                        subtree: true,
+                    });
+                } catch (err) {
+                    /* ignore */
+                }
+            });
+
+            let tries = 0;
+            const intervalId = window.setInterval(() => {
+                run();
+                tries += 1;
+                if (tries >= 40) window.clearInterval(intervalId);
+            }, 150);
         })();
         </script>
         """,
