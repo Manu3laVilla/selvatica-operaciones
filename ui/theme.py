@@ -231,23 +231,194 @@ def _table_pagination_css(*, body_prefix: str = "") -> str:
     """
 
 
-def _mobile_bottom_bar_css() -> str:
+def _mobile_streamlit_chrome_hide_css(body_prefix: str = "") -> str:
+    return f"""
+    {body_prefix}header[data-testid="stHeader"],
+    {body_prefix}[data-testid="stToolbar"],
+    {body_prefix}[data-testid="stDecoration"],
+    {body_prefix}[data-testid="stStatusWidget"],
+    {body_prefix}[data-testid="stAppDeployButton"],
+    {body_prefix}[data-testid="stMainMenu"],
+    {body_prefix}[data-testid="stBottomBlockContainer"],
+    {body_prefix}footer,
+    {body_prefix}[class*="viewerBadge"],
+    {body_prefix}[class*="stAppDeployButton"] {{
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }}
+    """
+
+
+def _mobile_drawer_nav_css(body_prefix: str = "") -> str:
     c = COLORS
     return f"""
-    .selv-mobile-bottom-bar {{
+    #selv-mobile-nav-root {{
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 999999 !important;
+        pointer-events: none !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-menu-toggle {{
+        position: fixed !important;
+        top: calc(0.65rem + env(safe-area-inset-top, 0px)) !important;
+        left: 0.75rem !important;
+        z-index: 1000001 !important;
+        width: 2.65rem !important;
+        height: 2.65rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.28rem !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 2px solid rgba(122, 94, 53, 0.18) !important;
+        border-radius: 12px !important;
+        background: linear-gradient(180deg, {c['white']} 0%, {c['cream']} 100%) !important;
+        box-shadow: 0 4px 14px rgba(78, 87, 46, 0.14) !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        box-sizing: border-box !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-menu-toggle span {{
+        display: block !important;
+        width: 1.15rem !important;
+        height: 2px !important;
+        border-radius: 999px !important;
+        background: {c['olive']} !important;
+        transition: transform 0.2s ease, opacity 0.2s ease !important;
+    }}
+
+    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-menu-toggle span:nth-child(1) {{
+        transform: translateY(6px) rotate(45deg) !important;
+    }}
+
+    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-menu-toggle span:nth-child(2) {{
+        opacity: 0 !important;
+    }}
+
+    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-menu-toggle span:nth-child(3) {{
+        transform: translateY(-6px) rotate(-45deg) !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-drawer-backdrop {{
+        position: fixed !important;
+        inset: 0 !important;
+        background: rgba(78, 87, 46, 0.35) !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        transition: opacity 0.2s ease, visibility 0.2s ease !important;
+        pointer-events: none !important;
+    }}
+
+    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-drawer-backdrop {{
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-drawer {{
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: min(18.5rem, 84vw) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.35rem !important;
+        margin: 0 !important;
+        padding: calc(4.25rem + env(safe-area-inset-top, 0px)) 0.85rem
+            calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+        background: linear-gradient(180deg, {c['cream']} 0%, {c['pink_soft']} 100%) !important;
+        border-right: 2px solid rgba(241, 193, 223, 0.85) !important;
+        box-shadow: 8px 0 28px rgba(78, 87, 46, 0.16) !important;
+        transform: translateX(-105%) !important;
+        transition: transform 0.24s ease !important;
+        overflow-y: auto !important;
+        pointer-events: auto !important;
+        box-sizing: border-box !important;
+    }}
+
+    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-drawer {{
+        transform: translateX(0) !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-nav-item {{
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.7rem !important;
+        min-height: 2.85rem !important;
+        padding: 0.55rem 0.75rem !important;
+        border-radius: 12px !important;
+        text-decoration: none !important;
+        border: 1px solid transparent !important;
+        color: {c['olive']} !important;
+        font-family: 'Nunito', 'Segoe UI', sans-serif !important;
+        font-size: 0.92rem !important;
+        font-weight: 700 !important;
+        box-sizing: border-box !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-nav-label {{
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        line-height: 1.2 !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-nav-icon {{
+        display: block !important;
+        width: 22px !important;
+        height: 22px !important;
+        min-width: 22px !important;
+        min-height: 22px !important;
+        object-fit: contain !important;
+        flex-shrink: 0 !important;
+        pointer-events: none !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-nav-badge {{
+        min-width: 1.15rem !important;
+        height: 1.15rem !important;
+        padding: 0 0.3rem !important;
+        border-radius: 999px !important;
+        background: {c['pink']} !important;
+        color: {c['olive']} !important;
+        font-family: 'Nunito', 'Segoe UI', sans-serif !important;
+        font-size: 0.62rem !important;
+        font-weight: 800 !important;
+        line-height: 1.15rem !important;
+        text-align: center !important;
+        border: 1px solid rgba(122, 94, 53, 0.2) !important;
+        flex-shrink: 0 !important;
+    }}
+
+    #selv-mobile-nav-root .selv-mobile-nav-item--active {{
+        background: {c['white']} !important;
+        border-color: rgba(122, 94, 53, 0.15) !important;
+        box-shadow: 0 2px 8px rgba(122, 94, 53, 0.1) !important;
+    }}
+    """
+
+
+def _mobile_bottom_bar_css() -> str:
+    streamlit_hide = _mobile_streamlit_chrome_hide_css()
+    return f"""
+    #selv-mobile-nav-root {{
         display: none;
     }}
 
     @media (max-width: 768px) {{
-        header[data-testid="stHeader"],
-        [data-testid="stToolbar"],
-        [data-testid="stDecoration"],
-        [data-testid="stStatusWidget"] {{
-            display: none !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            visibility: hidden !important;
-        }}
+        {streamlit_hide}
 
         [data-testid="stSidebar"],
         [data-testid="stSidebarCollapsedControl"],
@@ -265,106 +436,17 @@ def _mobile_bottom_bar_css() -> str:
         section[data-testid="stMain"] .block-container,
         [data-testid="stMainBlockContainer"],
         [data-testid="stAppViewContainer"] {{
-            padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px)) !important;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+        }}
+
+        section[data-testid="stMain"] .block-container,
+        [data-testid="stMainBlockContainer"] {{
+            padding-top: calc(3.75rem + env(safe-area-inset-top, 0px)) !important;
         }}
 
         .st-key-mobile_bottom_nav,
         .st-key-mobile_bottom_nav ~ * {{
             display: none !important;
-        }}
-
-        [data-testid="stVerticalBlock"]:has(.selv-mobile-bottom-bar),
-        [data-testid="stHtml"]:has(.selv-mobile-bottom-bar),
-        .stElementContainer:has(.selv-mobile-bottom-bar) {{
-            position: fixed !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            z-index: 999999 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            pointer-events: none !important;
-        }}
-
-        [data-testid="stVerticalBlock"]:has(.selv-mobile-bottom-bar) > div,
-        [data-testid="stHtml"]:has(.selv-mobile-bottom-bar) > div,
-        .stElementContainer:has(.selv-mobile-bottom-bar) > div {{
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-        }}
-
-        .selv-mobile-bottom-bar {{
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            justify-content: space-around !important;
-            gap: 0.15rem !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0.45rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom, 0px)) !important;
-            background: linear-gradient(
-                180deg,
-                {c['pink_mid']} 0%,
-                {c['cream']} 100%
-            ) !important;
-            border-top: 1px solid rgba(122, 94, 53, 0.22) !important;
-            box-shadow: 0 -6px 24px rgba(78, 87, 46, 0.14) !important;
-            pointer-events: auto !important;
-            box-sizing: border-box !important;
-        }}
-
-        .selv-mobile-nav-item {{
-            position: relative !important;
-            flex: 1 1 0 !important;
-            min-width: 0 !important;
-            max-width: 3.25rem !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            min-height: 2.75rem !important;
-            padding: 0.35rem !important;
-            border-radius: 12px !important;
-            text-decoration: none !important;
-            border: 1px solid transparent !important;
-            box-sizing: border-box !important;
-        }}
-
-        .selv-mobile-nav-icon {{
-            display: block !important;
-            width: 22px !important;
-            height: 22px !important;
-            min-width: 22px !important;
-            min-height: 22px !important;
-            object-fit: contain !important;
-            flex-shrink: 0 !important;
-        }}
-
-        .selv-mobile-nav-badge {{
-            position: absolute !important;
-            top: 0.1rem !important;
-            right: 0.1rem !important;
-            min-width: 0.95rem !important;
-            height: 0.95rem !important;
-            padding: 0 0.2rem !important;
-            border-radius: 999px !important;
-            background: {c['pink']} !important;
-            color: {c['olive']} !important;
-            font-family: 'Nunito', 'Segoe UI', sans-serif !important;
-            font-size: 0.55rem !important;
-            font-weight: 800 !important;
-            line-height: 0.95rem !important;
-            text-align: center !important;
-            border: 1px solid rgba(122, 94, 53, 0.2) !important;
-        }}
-
-        .selv-mobile-nav-item--active {{
-            background: {c['pink']} !important;
-            border-color: rgba(122, 94, 53, 0.15) !important;
-            box-shadow: 0 2px 8px rgba(122, 94, 53, 0.1) !important;
         }}
     }}
     """
@@ -390,18 +472,9 @@ def _mobile_nav_badge_count(label: str, page_key: str) -> str | None:
 
 def _get_mobile_active_css() -> str:
     """CSS inyectado en <head> cuando body tiene clase selv-mobile."""
-    c = COLORS
 
     return f"""
-    body.selv-mobile header[data-testid="stHeader"],
-    body.selv-mobile [data-testid="stToolbar"],
-    body.selv-mobile [data-testid="stDecoration"],
-    body.selv-mobile [data-testid="stStatusWidget"] {{
-        display: none !important;
-        height: 0 !important;
-        min-height: 0 !important;
-        visibility: hidden !important;
-    }}
+    {_mobile_streamlit_chrome_hide_css("body.selv-mobile ")}
 
     body.selv-mobile [data-testid="stSidebar"],
     body.selv-mobile [data-testid="stSidebarCollapsedControl"],
@@ -417,14 +490,14 @@ def _get_mobile_active_css() -> str:
     body.selv-mobile section[data-testid="stMain"] .block-container,
     body.selv-mobile [data-testid="stMainBlockContainer"],
     body.selv-mobile [data-testid="stAppViewContainer"] {{
-        padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)) !important;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
     }}
 
     body.selv-mobile section[data-testid="stMain"] .block-container,
     body.selv-mobile [data-testid="stMainBlockContainer"] {{
         padding-left: 0.85rem !important;
         padding-right: 0.85rem !important;
-        padding-top: calc(1.35rem + env(safe-area-inset-top, 0px)) !important;
+        padding-top: calc(3.75rem + env(safe-area-inset-top, 0px)) !important;
         max-width: 100% !important;
     }}
 
@@ -506,80 +579,7 @@ def _get_mobile_active_css() -> str:
         overflow-x: auto !important;
     }}
 
-    #selv-mobile-nav-root {{
-        position: fixed !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        z-index: 999999 !important;
-        pointer-events: none !important;
-    }}
-
-    #selv-mobile-nav-root .selv-mobile-bottom-bar {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        justify-content: space-around !important;
-        gap: 0.15rem !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0.45rem 0.35rem calc(0.5rem + env(safe-area-inset-bottom, 0px)) !important;
-        background: linear-gradient(180deg, {c['pink_mid']} 0%, {c['cream']} 100%) !important;
-        border-top: 1px solid rgba(122, 94, 53, 0.22) !important;
-        box-shadow: 0 -6px 24px rgba(78, 87, 46, 0.14) !important;
-        pointer-events: auto !important;
-        box-sizing: border-box !important;
-    }}
-
-    #selv-mobile-nav-root .selv-mobile-nav-item {{
-        position: relative !important;
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        max-width: 3.25rem !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        min-height: 2.75rem !important;
-        padding: 0.35rem !important;
-        border-radius: 12px !important;
-        text-decoration: none !important;
-        border: 1px solid transparent !important;
-    }}
-
-    #selv-mobile-nav-root .selv-mobile-nav-badge {{
-        position: absolute !important;
-        top: 0.1rem !important;
-        right: 0.1rem !important;
-        min-width: 0.95rem !important;
-        height: 0.95rem !important;
-        padding: 0 0.2rem !important;
-        border-radius: 999px !important;
-        background: {c['pink']} !important;
-        color: {c['olive']} !important;
-        font-size: 0.55rem !important;
-        font-weight: 800 !important;
-        line-height: 0.95rem !important;
-        text-align: center !important;
-        border: 1px solid rgba(122, 94, 53, 0.2) !important;
-    }}
-
-    #selv-mobile-nav-root .selv-mobile-nav-item--active {{
-        background: {c['pink']} !important;
-        border-color: rgba(122, 94, 53, 0.15) !important;
-        box-shadow: 0 2px 8px rgba(122, 94, 53, 0.1) !important;
-    }}
-
-    #selv-mobile-nav-root .selv-mobile-nav-icon {{
-        display: block !important;
-        width: 22px !important;
-        height: 22px !important;
-        min-width: 22px !important;
-        min-height: 22px !important;
-        object-fit: contain !important;
-        flex-shrink: 0 !important;
-        pointer-events: none !important;
-    }}
+    {_mobile_drawer_nav_css()}
     """
 
 
@@ -591,7 +591,7 @@ def _mobile_responsive_css() -> str:
         [data-testid="stMainBlockContainer"] {{
             padding-left: 0.85rem !important;
             padding-right: 0.85rem !important;
-            padding-top: calc(1.35rem + env(safe-area-inset-top, 0px)) !important;
+            padding-top: calc(3.75rem + env(safe-area-inset-top, 0px)) !important;
             max-width: 100% !important;
         }}
 
@@ -1788,6 +1788,95 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
             const doc = win.document;
             if (!doc) return;
 
+            const closeDrawer = (root) => {{
+                root.classList.remove("selv-mobile-nav--open");
+                const toggle = root.querySelector(".selv-mobile-menu-toggle");
+                if (toggle) {{
+                    toggle.setAttribute("aria-expanded", "false");
+                    toggle.setAttribute("aria-label", "Abrir menú");
+                }}
+            }};
+
+            const openDrawer = (root) => {{
+                root.classList.add("selv-mobile-nav--open");
+                const toggle = root.querySelector(".selv-mobile-menu-toggle");
+                if (toggle) {{
+                    toggle.setAttribute("aria-expanded", "true");
+                    toggle.setAttribute("aria-label", "Cerrar menú");
+                }}
+            }};
+
+            const buildDrawerNav = (root) => {{
+                root.replaceChildren();
+
+                const toggle = doc.createElement("button");
+                toggle.type = "button";
+                toggle.className = "selv-mobile-menu-toggle";
+                toggle.setAttribute("aria-label", "Abrir menú");
+                toggle.setAttribute("aria-expanded", "false");
+                toggle.innerHTML = "<span></span><span></span><span></span>";
+                toggle.addEventListener("click", (event) => {{
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (root.classList.contains("selv-mobile-nav--open")) {{
+                        closeDrawer(root);
+                    }} else {{
+                        openDrawer(root);
+                    }}
+                }});
+
+                const backdrop = doc.createElement("div");
+                backdrop.className = "selv-mobile-drawer-backdrop";
+                backdrop.setAttribute("aria-hidden", "true");
+                backdrop.addEventListener("click", () => closeDrawer(root));
+
+                const drawer = doc.createElement("nav");
+                drawer.className = "selv-mobile-drawer";
+                drawer.setAttribute("aria-label", "Navegación principal");
+
+                ITEMS.forEach((item) => {{
+                    const link = doc.createElement("a");
+                    link.className =
+                        "selv-mobile-nav-item selv-mobile-nav-item--" +
+                        item.key +
+                        (item.active ? " selv-mobile-nav-item--active" : "");
+                    link.href = item.href;
+                    link.title = item.label;
+                    link.setAttribute("aria-label", item.label);
+                    if (item.active) {{
+                        link.setAttribute("aria-current", "page");
+                    }}
+                    link.addEventListener("click", () => closeDrawer(root));
+
+                    const icon = doc.createElement("img");
+                    icon.className = "selv-mobile-nav-icon";
+                    icon.src = item.icon;
+                    icon.width = 22;
+                    icon.height = 22;
+                    icon.alt = "";
+                    icon.setAttribute("aria-hidden", "true");
+                    link.appendChild(icon);
+
+                    const label = doc.createElement("span");
+                    label.className = "selv-mobile-nav-label";
+                    label.textContent = item.label;
+                    link.appendChild(label);
+
+                    if (item.badge) {{
+                        const badge = doc.createElement("span");
+                        badge.className = "selv-mobile-nav-badge";
+                        badge.textContent = item.badge;
+                        link.appendChild(badge);
+                    }}
+
+                    drawer.appendChild(link);
+                }});
+
+                root.appendChild(toggle);
+                root.appendChild(backdrop);
+                root.appendChild(drawer);
+            }};
+
             const applyMobileNav = () => {{
                 const mobile = win.matchMedia(MOBILE_QUERY).matches;
 
@@ -1812,43 +1901,7 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
                     doc.body.appendChild(root);
                 }}
 
-                const nav = doc.createElement("nav");
-                nav.className = "selv-mobile-bottom-bar";
-                nav.setAttribute("aria-label", "Navegación principal");
-
-                ITEMS.forEach((item) => {{
-                    const link = doc.createElement("a");
-                    link.className =
-                        "selv-mobile-nav-item selv-mobile-nav-item--" +
-                        item.key +
-                        (item.active ? " selv-mobile-nav-item--active" : "");
-                    link.href = item.href;
-                    link.title = item.label;
-                    link.setAttribute("aria-label", item.label);
-                    if (item.active) {{
-                        link.setAttribute("aria-current", "page");
-                    }}
-
-                    const icon = doc.createElement("img");
-                    icon.className = "selv-mobile-nav-icon";
-                    icon.src = item.icon;
-                    icon.width = 22;
-                    icon.height = 22;
-                    icon.alt = "";
-                    icon.setAttribute("aria-hidden", "true");
-                    link.appendChild(icon);
-
-                    if (item.badge) {{
-                        const badge = doc.createElement("span");
-                        badge.className = "selv-mobile-nav-badge";
-                        badge.textContent = item.badge;
-                        link.appendChild(badge);
-                    }}
-
-                    nav.appendChild(link);
-                }});
-
-                root.replaceChildren(nav);
+                buildDrawerNav(root);
             }};
 
             applyMobileNav();
