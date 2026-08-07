@@ -12,7 +12,7 @@ from services.catalog_service import (
     state_reverses_sale,
     validate_order_state,
 )
-from services.product_service import get_product
+from services.product_service import adjust_stock, get_product
 from services.sale_service import (
     register_sales_from_order,
     reverse_sales_for_order,
@@ -49,6 +49,53 @@ def _parse_items(items_json: str) -> list[dict[str, Any]]:
         return items if isinstance(items, list) else []
     except json.JSONDecodeError:
         return []
+
+
+def reserve_stock_for_items(items: list[dict[str, Any]]) -> None:
+    """Reserva inventario descontando stock (al crear o reactivar un pedido)."""
+    for item in items:
+        product_id = str(item["producto_id"])
+        qty = int(item["cantidad"])
+        product = get_product(product_id)
+        if product is None:
+            raise ValueError(f"Producto no encontrado: {product_id}")
+
+        stock = int(product.get("stock", 0))
+        if qty > stock:
+            name = str(product.get("nombre", product_id))
+            raise ValueError(f"Stock insuficiente para {name}. Disponible: {stock}")
+
+        adjust_stock(product_id, -qty)
+
+
+def release_stock_for_items(items: list[dict[str, Any]]) -> None:
+    """Libera inventario reservado (cancelación sin venta registrada)."""
+    for item in items:
+        adjust_stock(str(item["producto_id"]), int(item["cantidad"]))
+
+
+def _handle_order_status_stock(
+    order_id: str,
+    items: list[dict[str, Any]],
+    *,
+    previous_status: str,
+    new_status: str,
+) -> None:
+    moving_to_reverse = state_reverses_sale(new_status)
+    moving_from_reverse = state_reverses_sale(previous_status)
+
+    if moving_to_reverse:
+        if sales_exist_for_order(order_id):
+            reverse_sales_for_order(order_id)
+        elif not moving_from_reverse:
+            release_stock_for_items(items)
+
+    if (
+        moving_from_reverse
+        and not moving_to_reverse
+        and not sales_exist_for_order(order_id)
+    ):
+        reserve_stock_for_items(items)
 
 
 def create_order(
@@ -99,6 +146,7 @@ def create_order(
         "fecha_actualizacion": now_str(),
         "notas": notas.strip(),
     }
+    reserve_stock_for_items(normalized_items)
     get_db().append_row(SHEET_PEDIDOS, list(order.values()))
 
     if register_sales:
@@ -126,12 +174,15 @@ def update_order_status(order_id: str, new_status: str) -> bool:
     db.update_row(SHEET_PEDIDOS, row_number, list(order.values()))
 
     items = _parse_items(str(order.get("items_json", "")))
+    _handle_order_status_stock(
+        order_id,
+        items,
+        previous_status=previous_status,
+        new_status=new_status,
+    )
 
     if state_generates_sale(new_status) and not sales_exist_for_order(order_id):
         register_sales_from_order(order, items)
-
-    if state_reverses_sale(new_status) and sales_exist_for_order(order_id):
-        reverse_sales_for_order(order_id)
 
     return True
 

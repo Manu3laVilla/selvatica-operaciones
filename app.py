@@ -42,6 +42,8 @@ from services.order_service import (
     create_order,
     get_order_items,
     list_orders,
+    release_stock_for_items,
+    reserve_stock_for_items,
     update_order_status,
 )
 from services.product_service import create_product, list_products, update_product
@@ -1102,15 +1104,36 @@ def _update_order_status(order_id: str, new_status: str) -> bool:
             if str(order.get("id", "")) != str(order_id):
                 continue
 
+            previous_status = str(order.get("estado", ""))
             order["estado"] = new_status
             order["fecha_actualizacion"] = now_str()
             st.session_state.preview_orders[index] = order
             items = _order_items(order_id)
 
+            moving_to_reverse = _order_state_reverses_sale(new_status)
+            moving_from_reverse = _order_state_reverses_sale(previous_status)
+
+            if moving_to_reverse:
+                if _sales_exist_for_order(order_id):
+                    _reverse_sales_from_order_preview(order_id)
+                elif not moving_from_reverse:
+                    try:
+                        release_stock_for_items(items)
+                    except Exception:
+                        pass
+
+            if (
+                moving_from_reverse
+                and not moving_to_reverse
+                and not _sales_exist_for_order(order_id)
+            ):
+                try:
+                    reserve_stock_for_items(items)
+                except Exception:
+                    pass
+
             if _order_state_generates_sale(new_status) and not _sales_exist_for_order(order_id):
                 _register_sales_from_order_preview(order, items)
-            if _order_state_reverses_sale(new_status) and _sales_exist_for_order(order_id):
-                _reverse_sales_from_order_preview(order_id)
             return True
         return False
 
@@ -1735,6 +1758,10 @@ def page_orders() -> None:
         "Crea pedidos y actualiza su estado",
         "pedidos",
     )
+    st.caption(
+        "Al crear un pedido se reserva stock. La venta en dinero se registra "
+        "al pasar a un estado con «Genera venta efectiva»."
+    )
 
     tab = section_tabs(["Listado", "Nuevo pedido", "Actualizar estado"], "orders_tabs")
 
@@ -1976,9 +2003,10 @@ def _render_simple_catalog_admin(
 
 def _render_order_states_admin() -> None:
     st.caption(
-        "Configura el flujo de pedidos. Marca «Genera venta» en los estados que registran "
-        "la venta y descuentan stock. Marca «Revierte venta» en los estados que anulan "
-        "una venta ya registrada y devuelven el stock."
+        "Configura el flujo de pedidos. Al crear un pedido se reserva stock. "
+        "Marca «Genera venta» en los estados que registran la venta en dinero "
+        "(sin descontar stock otra vez). Marca «Revierte venta» en los estados que anulan "
+        "una venta ya registrada y devuelven el stock; si no hubo venta, liberan la reserva."
     )
 
     tab = section_tabs(

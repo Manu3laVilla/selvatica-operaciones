@@ -42,6 +42,7 @@ def register_sale(
     *,
     precio_unitario: float | None = None,
     producto_nombre: str | None = None,
+    adjust_inventory: bool = True,
 ) -> dict[str, Any]:
     product = get_product(producto_id)
     if product is None:
@@ -71,7 +72,8 @@ def register_sale(
         "pedido_id": pedido_id,
     }
 
-    adjust_stock(producto_id, -qty)
+    if adjust_inventory:
+        adjust_stock(producto_id, -qty)
     get_db().append_row(SHEET_VENTAS, list(sale.values()))
     return sale
 
@@ -94,6 +96,7 @@ def register_sales_from_order(order: dict[str, Any], items: list[dict[str, Any]]
             pedido_id=order_id,
             precio_unitario=float(item.get("precio_unitario", 0)),
             producto_nombre=str(item.get("producto_nombre", "")),
+            adjust_inventory=False,
         )
         created.append(sale)
 
