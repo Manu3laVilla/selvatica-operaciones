@@ -1530,6 +1530,7 @@ def page_contabilidad() -> None:
 def main() -> None:
     init_connection()
     menu = build_nav_menu(_alert_count())
+    render_mobile_bottom_nav(menu)
     sync_sidebar_compact_state()
     sync_mobile_nav_from_query(menu)
     page = sidebar()
@@ -1544,7 +1545,6 @@ def main() -> None:
         "alertas": page_alerts,
     }
     pages[page]()
-    render_mobile_bottom_nav(menu)
 
 
 if __name__ == "__main__":

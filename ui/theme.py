@@ -256,166 +256,200 @@ def _mobile_streamlit_chrome_hide_css(body_prefix: str = "") -> str:
     """
 
 
-def _mobile_drawer_nav_css(body_prefix: str = "") -> str:
+def _mobile_drawer_nav_css() -> str:
     c = COLORS
     return f"""
-    #selv-mobile-nav-root {{
-        position: fixed !important;
-        inset: 0 !important;
-        z-index: 999999 !important;
-        pointer-events: none !important;
+    .selv-mobile-nav-shell {{
+        display: none;
     }}
 
-    #selv-mobile-nav-root .selv-mobile-menu-toggle {{
-        position: fixed !important;
-        top: calc(0.65rem + env(safe-area-inset-top, 0px)) !important;
-        left: 0.75rem !important;
-        z-index: 1000001 !important;
-        width: 2.65rem !important;
-        height: 2.65rem !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 0.28rem !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: 2px solid rgba(122, 94, 53, 0.18) !important;
-        border-radius: 12px !important;
-        background: linear-gradient(180deg, {c['white']} 0%, {c['cream']} 100%) !important;
-        box-shadow: 0 4px 14px rgba(78, 87, 46, 0.14) !important;
-        cursor: pointer !important;
-        pointer-events: auto !important;
-        box-sizing: border-box !important;
-    }}
+    @media (max-width: 768px) {{
+        .stElementContainer:has(.selv-mobile-nav-shell),
+        [data-testid="stMarkdownContainer"]:has(.selv-mobile-nav-shell),
+        [data-testid="stMarkdown"]:has(.selv-mobile-nav-shell) {{
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            z-index: 999999 !important;
+            border: none !important;
+            background: transparent !important;
+            pointer-events: none !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-menu-toggle span {{
-        display: block !important;
-        width: 1.15rem !important;
-        height: 2px !important;
-        border-radius: 999px !important;
-        background: {c['olive']} !important;
-        transition: transform 0.2s ease, opacity 0.2s ease !important;
-    }}
+        .selv-mobile-nav-shell {{
+            display: block !important;
+            pointer-events: none !important;
+        }}
 
-    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-menu-toggle span:nth-child(1) {{
-        transform: translateY(6px) rotate(45deg) !important;
-    }}
+        .selv-mobile-nav-details {{
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 999999 !important;
+            pointer-events: none !important;
+        }}
 
-    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-menu-toggle span:nth-child(2) {{
-        opacity: 0 !important;
-    }}
+        .selv-mobile-nav-details > summary {{
+            list-style: none !important;
+        }}
 
-    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-menu-toggle span:nth-child(3) {{
-        transform: translateY(-6px) rotate(-45deg) !important;
-    }}
+        .selv-mobile-nav-details > summary::-webkit-details-marker {{
+            display: none !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-drawer-backdrop {{
-        position: fixed !important;
-        inset: 0 !important;
-        background: rgba(78, 87, 46, 0.35) !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        transition: opacity 0.2s ease, visibility 0.2s ease !important;
-        pointer-events: none !important;
-    }}
+        .selv-mobile-menu-toggle {{
+            position: fixed !important;
+            top: calc(0.65rem + env(safe-area-inset-top, 0px)) !important;
+            left: 0.75rem !important;
+            z-index: 1000001 !important;
+            width: 2.65rem !important;
+            height: 2.65rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.28rem !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 2px solid rgba(122, 94, 53, 0.18) !important;
+            border-radius: 12px !important;
+            background: linear-gradient(180deg, {c['white']} 0%, {c['cream']} 100%) !important;
+            box-shadow: 0 4px 14px rgba(78, 87, 46, 0.14) !important;
+            cursor: pointer !important;
+            pointer-events: auto !important;
+            box-sizing: border-box !important;
+        }}
 
-    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-drawer-backdrop {{
-        opacity: 1 !important;
-        visibility: visible !important;
-        pointer-events: auto !important;
-    }}
+        .selv-mobile-menu-toggle span {{
+            display: block !important;
+            width: 1.15rem !important;
+            height: 2px !important;
+            border-radius: 999px !important;
+            background: {c['olive']} !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-drawer {{
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        bottom: 0 !important;
-        width: min(18.5rem, 84vw) !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 0.35rem !important;
-        margin: 0 !important;
-        padding: calc(4.25rem + env(safe-area-inset-top, 0px)) 0.85rem
-            calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
-        background: linear-gradient(180deg, {c['cream']} 0%, {c['pink_soft']} 100%) !important;
-        border-right: 2px solid rgba(241, 193, 223, 0.85) !important;
-        box-shadow: 8px 0 28px rgba(78, 87, 46, 0.16) !important;
-        transform: translateX(-105%) !important;
-        transition: transform 0.24s ease !important;
-        overflow-y: auto !important;
-        pointer-events: auto !important;
-        box-sizing: border-box !important;
-    }}
+        .selv-mobile-nav-details[open] .selv-mobile-menu-toggle span:nth-child(1) {{
+            transform: translateY(6px) rotate(45deg) !important;
+        }}
 
-    #selv-mobile-nav-root.selv-mobile-nav--open .selv-mobile-drawer {{
-        transform: translateX(0) !important;
-    }}
+        .selv-mobile-nav-details[open] .selv-mobile-menu-toggle span:nth-child(2) {{
+            opacity: 0 !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-nav-item {{
-        position: relative !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 0.7rem !important;
-        min-height: 2.85rem !important;
-        padding: 0.55rem 0.75rem !important;
-        border-radius: 12px !important;
-        text-decoration: none !important;
-        border: 1px solid transparent !important;
-        color: {c['olive']} !important;
-        font-family: 'Nunito', 'Segoe UI', sans-serif !important;
-        font-size: 0.92rem !important;
-        font-weight: 700 !important;
-        box-sizing: border-box !important;
-    }}
+        .selv-mobile-nav-details[open] .selv-mobile-menu-toggle span:nth-child(3) {{
+            transform: translateY(-6px) rotate(-45deg) !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-nav-label {{
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-        line-height: 1.2 !important;
-    }}
+        .selv-mobile-nav-details[open]::before {{
+            content: "" !important;
+            position: fixed !important;
+            inset: 0 !important;
+            background: rgba(78, 87, 46, 0.35) !important;
+            z-index: 999998 !important;
+            pointer-events: auto !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-nav-icon {{
-        display: block !important;
-        width: 22px !important;
-        height: 22px !important;
-        min-width: 22px !important;
-        min-height: 22px !important;
-        object-fit: contain !important;
-        flex-shrink: 0 !important;
-        pointer-events: none !important;
-    }}
+        .selv-mobile-drawer {{
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            width: min(18.5rem, 84vw) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.35rem !important;
+            margin: 0 !important;
+            padding: calc(4.25rem + env(safe-area-inset-top, 0px)) 0.85rem
+                calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+            background: linear-gradient(180deg, {c['cream']} 0%, {c['pink_soft']} 100%) !important;
+            border-right: 2px solid rgba(241, 193, 223, 0.85) !important;
+            box-shadow: 8px 0 28px rgba(78, 87, 46, 0.16) !important;
+            overflow-y: auto !important;
+            pointer-events: auto !important;
+            box-sizing: border-box !important;
+            z-index: 1000000 !important;
+            transform: translateX(-105%) !important;
+            transition: transform 0.24s ease !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-nav-badge {{
-        min-width: 1.15rem !important;
-        height: 1.15rem !important;
-        padding: 0 0.3rem !important;
-        border-radius: 999px !important;
-        background: {c['pink']} !important;
-        color: {c['olive']} !important;
-        font-family: 'Nunito', 'Segoe UI', sans-serif !important;
-        font-size: 0.62rem !important;
-        font-weight: 800 !important;
-        line-height: 1.15rem !important;
-        text-align: center !important;
-        border: 1px solid rgba(122, 94, 53, 0.2) !important;
-        flex-shrink: 0 !important;
-    }}
+        .selv-mobile-nav-details[open] .selv-mobile-drawer {{
+            transform: translateX(0) !important;
+        }}
 
-    #selv-mobile-nav-root .selv-mobile-nav-item--active {{
-        background: {c['white']} !important;
-        border-color: rgba(122, 94, 53, 0.15) !important;
-        box-shadow: 0 2px 8px rgba(122, 94, 53, 0.1) !important;
+        .selv-mobile-nav-details:not([open]) .selv-mobile-drawer {{
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }}
+
+        .selv-mobile-nav-item {{
+            position: relative !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.7rem !important;
+            min-height: 2.85rem !important;
+            padding: 0.55rem 0.75rem !important;
+            border-radius: 12px !important;
+            text-decoration: none !important;
+            border: 1px solid transparent !important;
+            color: {c['olive']} !important;
+            font-family: 'Nunito', 'Segoe UI', sans-serif !important;
+            font-size: 0.92rem !important;
+            font-weight: 700 !important;
+            box-sizing: border-box !important;
+        }}
+
+        .selv-mobile-nav-label {{
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            line-height: 1.2 !important;
+        }}
+
+        .selv-mobile-nav-icon {{
+            display: block !important;
+            width: 22px !important;
+            height: 22px !important;
+            min-width: 22px !important;
+            min-height: 22px !important;
+            object-fit: contain !important;
+            flex-shrink: 0 !important;
+            pointer-events: none !important;
+        }}
+
+        .selv-mobile-nav-badge {{
+            min-width: 1.15rem !important;
+            height: 1.15rem !important;
+            padding: 0 0.3rem !important;
+            border-radius: 999px !important;
+            background: {c['pink']} !important;
+            color: {c['olive']} !important;
+            font-family: 'Nunito', 'Segoe UI', sans-serif !important;
+            font-size: 0.62rem !important;
+            font-weight: 800 !important;
+            line-height: 1.15rem !important;
+            text-align: center !important;
+            border: 1px solid rgba(122, 94, 53, 0.2) !important;
+            flex-shrink: 0 !important;
+        }}
+
+        .selv-mobile-nav-item--active {{
+            background: {c['white']} !important;
+            border-color: rgba(122, 94, 53, 0.15) !important;
+            box-shadow: 0 2px 8px rgba(122, 94, 53, 0.1) !important;
+        }}
     }}
     """
 
 
 def _mobile_bottom_bar_css() -> str:
     streamlit_hide = _mobile_streamlit_chrome_hide_css()
+    drawer_css = _mobile_drawer_nav_css()
     return f"""
-    #selv-mobile-nav-root {{
-        display: none;
-    }}
+    {drawer_css}
 
     @media (max-width: 768px) {{
         {streamlit_hide}
@@ -468,119 +502,6 @@ def _mobile_nav_badge_count(label: str, page_key: str) -> str | None:
     if page_key == "alertas" and "(" in label:
         return label.split("(")[-1].rstrip(")")
     return None
-
-
-def _get_mobile_active_css() -> str:
-    """CSS inyectado en <head> cuando body tiene clase selv-mobile."""
-
-    return f"""
-    {_mobile_streamlit_chrome_hide_css("body.selv-mobile ")}
-
-    body.selv-mobile [data-testid="stSidebar"],
-    body.selv-mobile [data-testid="stSidebarCollapsedControl"],
-    body.selv-mobile [data-testid="stExpandSidebarButton"],
-    body.selv-mobile [data-testid="stSidebarCollapseButton"] {{
-        display: none !important;
-        width: 0 !important;
-        visibility: hidden !important;
-    }}
-
-    body.selv-mobile section[data-testid="stMain"],
-    body.selv-mobile section[data-testid="stMain"] > div,
-    body.selv-mobile section[data-testid="stMain"] .block-container,
-    body.selv-mobile [data-testid="stMainBlockContainer"],
-    body.selv-mobile [data-testid="stAppViewContainer"] {{
-        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
-    }}
-
-    body.selv-mobile section[data-testid="stMain"] .block-container,
-    body.selv-mobile [data-testid="stMainBlockContainer"] {{
-        padding-left: 0.85rem !important;
-        padding-right: 0.85rem !important;
-        padding-top: calc(3.75rem + env(safe-area-inset-top, 0px)) !important;
-        max-width: 100% !important;
-    }}
-
-    body.selv-mobile .page-doodle-wrap {{
-        margin-bottom: 0.35rem !important;
-        padding-top: 0.15rem !important;
-        overflow: visible !important;
-    }}
-
-    body.selv-mobile .main-header {{
-        font-size: 1.55rem !important;
-        line-height: 1.3 !important;
-        margin-top: 0 !important;
-        overflow: visible !important;
-    }}
-
-    body.selv-mobile .sub-header {{
-        font-size: 0.88rem !important;
-        margin-bottom: 0.85rem !important;
-    }}
-
-    body.selv-mobile section[data-testid="stMain"] [data-testid="stMarkdown"]:has(.page-doodle-wrap),
-    body.selv-mobile section[data-testid="stMain"] [data-testid="stMarkdownContainer"]:has(.page-doodle-wrap),
-    body.selv-mobile section[data-testid="stMain"] .stElementContainer:has(.page-doodle-wrap) {{
-        overflow: visible !important;
-    }}
-
-    body.selv-mobile .page-doodles img {{
-        width: 34px !important;
-        height: 34px !important;
-    }}
-
-    body.selv-mobile div[data-testid="stMetric"] {{
-        padding: 0.6rem 0.75rem !important;
-        margin-bottom: 0.45rem !important;
-    }}
-
-    body.selv-mobile section[data-testid="stMain"] [data-testid="stHorizontalBlock"] {{
-        flex-wrap: wrap !important;
-        gap: 0.45rem !important;
-    }}
-
-    body.selv-mobile section[data-testid="stMain"] [data-testid="column"] {{
-        min-width: calc(50% - 0.35rem) !important;
-        flex: 1 1 calc(50% - 0.35rem) !important;
-    }}
-
-    body.selv-mobile .selv-secnav-bar {{
-        flex-wrap: nowrap !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        gap: 0.25rem !important;
-    }}
-
-    body.selv-mobile .selv-secnav-btn {{
-        flex: 0 0 auto !important;
-        font-size: 0.78rem !important;
-        padding: 0.52rem 0.75rem !important;
-        white-space: nowrap !important;
-    }}
-
-    body.selv-mobile .selv-table-wrap {{
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-    }}
-
-    body.selv-mobile .selv-table {{
-        min-width: 520px !important;
-        font-size: 0.82rem !important;
-    }}
-
-    body.selv-mobile section[data-testid="stMain"] .stButton > button {{
-        width: 100% !important;
-    }}
-
-    {_table_pagination_css(body_prefix="body.selv-mobile ")}
-
-    body.selv-mobile [data-testid="stDataFrame"] {{
-        overflow-x: auto !important;
-    }}
-
-    {_mobile_drawer_nav_css()}
-    """
 
 
 def _mobile_responsive_css() -> str:
@@ -1755,165 +1676,43 @@ def _mobile_nav_badge(label: str, page_key: str) -> str:
 
 
 def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") -> None:
-    import json
+    import html
 
     import streamlit as st
-    import streamlit.components.v1 as components
 
     current = st.session_state.get(state_key, next(iter(menu.values())))
     compact_suffix = sidebar_compact_query_suffix()
-    items = []
+    links: list[str] = []
     for label, page_key in menu.items():
-        items.append(
-            {
-                "key": page_key,
-                "href": f"?selv_nav={page_key}{compact_suffix}",
-                "label": _mobile_nav_label(label, page_key),
-                "icon": _mobile_nav_icon_data_uri(page_key),
-                "badge": _mobile_nav_badge_count(label, page_key),
-                "active": current == page_key,
-            }
+        active_class = " selv-mobile-nav-item--active" if current == page_key else ""
+        nav_label = _mobile_nav_label(label, page_key)
+        icon = _mobile_nav_icon_data_uri(page_key)
+        badge_html = _mobile_nav_badge(label, page_key)
+        aria_current = ' aria-current="page"' if current == page_key else ""
+        links.append(
+            f'<a class="selv-mobile-nav-item selv-mobile-nav-item--{html.escape(page_key)}{active_class}" '
+            f'href="?selv_nav={html.escape(page_key)}{compact_suffix}" '
+            f'title="{html.escape(nav_label)}" aria-label="{html.escape(nav_label)}"{aria_current}>'
+            f'<img class="selv-mobile-nav-icon" src="{icon}" width="22" height="22" alt="" aria-hidden="true">'
+            f'<span class="selv-mobile-nav-label">{html.escape(nav_label)}</span>'
+            f"{badge_html}"
+            f"</a>"
         )
 
-    mobile_css = _get_mobile_active_css()
-
-    components.html(
+    st.markdown(
         f"""
-        <script>
-        (function () {{
-            const ITEMS = {json.dumps(items)};
-            const MOBILE_CSS = {json.dumps(mobile_css)};
-            const MOBILE_QUERY = "(max-width: 768px)";
-            const win = window.parent || window;
-            const doc = win.document;
-            if (!doc) return;
-
-            const closeDrawer = (root) => {{
-                root.classList.remove("selv-mobile-nav--open");
-                const toggle = root.querySelector(".selv-mobile-menu-toggle");
-                if (toggle) {{
-                    toggle.setAttribute("aria-expanded", "false");
-                    toggle.setAttribute("aria-label", "Abrir menú");
-                }}
-            }};
-
-            const openDrawer = (root) => {{
-                root.classList.add("selv-mobile-nav--open");
-                const toggle = root.querySelector(".selv-mobile-menu-toggle");
-                if (toggle) {{
-                    toggle.setAttribute("aria-expanded", "true");
-                    toggle.setAttribute("aria-label", "Cerrar menú");
-                }}
-            }};
-
-            const buildDrawerNav = (root) => {{
-                root.replaceChildren();
-
-                const toggle = doc.createElement("button");
-                toggle.type = "button";
-                toggle.className = "selv-mobile-menu-toggle";
-                toggle.setAttribute("aria-label", "Abrir menú");
-                toggle.setAttribute("aria-expanded", "false");
-                toggle.innerHTML = "<span></span><span></span><span></span>";
-                toggle.addEventListener("click", (event) => {{
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (root.classList.contains("selv-mobile-nav--open")) {{
-                        closeDrawer(root);
-                    }} else {{
-                        openDrawer(root);
-                    }}
-                }});
-
-                const backdrop = doc.createElement("div");
-                backdrop.className = "selv-mobile-drawer-backdrop";
-                backdrop.setAttribute("aria-hidden", "true");
-                backdrop.addEventListener("click", () => closeDrawer(root));
-
-                const drawer = doc.createElement("nav");
-                drawer.className = "selv-mobile-drawer";
-                drawer.setAttribute("aria-label", "Navegación principal");
-
-                ITEMS.forEach((item) => {{
-                    const link = doc.createElement("a");
-                    link.className =
-                        "selv-mobile-nav-item selv-mobile-nav-item--" +
-                        item.key +
-                        (item.active ? " selv-mobile-nav-item--active" : "");
-                    link.href = item.href;
-                    link.title = item.label;
-                    link.setAttribute("aria-label", item.label);
-                    if (item.active) {{
-                        link.setAttribute("aria-current", "page");
-                    }}
-                    link.addEventListener("click", () => closeDrawer(root));
-
-                    const icon = doc.createElement("img");
-                    icon.className = "selv-mobile-nav-icon";
-                    icon.src = item.icon;
-                    icon.width = 22;
-                    icon.height = 22;
-                    icon.alt = "";
-                    icon.setAttribute("aria-hidden", "true");
-                    link.appendChild(icon);
-
-                    const label = doc.createElement("span");
-                    label.className = "selv-mobile-nav-label";
-                    label.textContent = item.label;
-                    link.appendChild(label);
-
-                    if (item.badge) {{
-                        const badge = doc.createElement("span");
-                        badge.className = "selv-mobile-nav-badge";
-                        badge.textContent = item.badge;
-                        link.appendChild(badge);
-                    }}
-
-                    drawer.appendChild(link);
-                }});
-
-                root.appendChild(toggle);
-                root.appendChild(backdrop);
-                root.appendChild(drawer);
-            }};
-
-            const applyMobileNav = () => {{
-                const mobile = win.matchMedia(MOBILE_QUERY).matches;
-
-                let styleEl = doc.getElementById("selv-mobile-styles");
-                if (!styleEl) {{
-                    styleEl = doc.createElement("style");
-                    styleEl.id = "selv-mobile-styles";
-                    doc.head.appendChild(styleEl);
-                }}
-                styleEl.textContent = mobile ? MOBILE_CSS : "";
-                doc.body.classList.toggle("selv-mobile", mobile);
-
-                let root = doc.getElementById("selv-mobile-nav-root");
-                if (!mobile) {{
-                    root?.remove();
-                    return;
-                }}
-
-                if (!root) {{
-                    root = doc.createElement("div");
-                    root.id = "selv-mobile-nav-root";
-                    doc.body.appendChild(root);
-                }}
-
-                buildDrawerNav(root);
-            }};
-
-            applyMobileNav();
-            if (!win.__selvMobileNavResize) {{
-                win.__selvMobileNavResize = true;
-                win.addEventListener("resize", applyMobileNav);
-            }}
-        }})();
-        </script>
+        <div class="selv-mobile-nav-shell" aria-hidden="false">
+            <details class="selv-mobile-nav-details">
+                <summary class="selv-mobile-menu-toggle" aria-label="Abrir menú">
+                    <span></span><span></span><span></span>
+                </summary>
+                <nav class="selv-mobile-drawer" aria-label="Navegación principal">
+                    {"".join(links)}
+                </nav>
+            </details>
+        </div>
         """,
-        height=1,
-        width=1,
+        unsafe_allow_html=True,
     )
 
 
