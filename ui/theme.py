@@ -1681,7 +1681,7 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
     import streamlit as st
 
     current = st.session_state.get(state_key, next(iter(menu.values())))
-    compact_suffix = sidebar_compact_query_suffix()
+    sidebar_compact_flag = "1" if st.session_state.get("sidebar_compact") else "0"
     links: list[str] = []
     for label, page_key in menu.items():
         active_class = " selv-mobile-nav-item--active" if current == page_key else ""
@@ -1691,7 +1691,8 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
         aria_current = ' aria-current="page"' if current == page_key else ""
         links.append(
             f'<a class="selv-mobile-nav-item selv-mobile-nav-item--{html.escape(page_key)}{active_class}" '
-            f'href="?selv_nav={html.escape(page_key)}{compact_suffix}" '
+            f'href="#" data-selv-nav-page="{html.escape(page_key)}" '
+            f'data-sidebar-compact="{sidebar_compact_flag}" '
             f'title="{html.escape(nav_label)}" aria-label="{html.escape(nav_label)}"{aria_current}>'
             f'<img class="selv-mobile-nav-icon" src="{icon}" width="22" height="22" alt="" aria-hidden="true">'
             f'<span class="selv-mobile-nav-label">{html.escape(nav_label)}</span>'
@@ -1699,7 +1700,7 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
             f"</a>"
         )
 
-    st.markdown(
+    st.html(
         f"""
         <div class="selv-mobile-nav-shell" aria-hidden="false">
             <details class="selv-mobile-nav-details">
@@ -1711,8 +1712,33 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
                 </nav>
             </details>
         </div>
+        <script>
+        (function () {{
+            const targetWin = window.top || window;
+            const doc = targetWin.document || document;
+            doc.querySelectorAll("[data-selv-nav-page]").forEach((link) => {{
+                if (link.dataset.selvNavBound === "1") return;
+                link.dataset.selvNavBound = "1";
+                link.addEventListener("click", (event) => {{
+                    event.preventDefault();
+                    const page = link.getAttribute("data-selv-nav-page");
+                    if (!page) return;
+                    const url = new URL(targetWin.location.href);
+                    url.searchParams.set("selv_nav", page);
+                    if (link.getAttribute("data-sidebar-compact") === "1") {{
+                        url.searchParams.set("sidebar_compact", "1");
+                    }} else {{
+                        url.searchParams.delete("sidebar_compact");
+                    }}
+                    const details = link.closest(".selv-mobile-nav-details");
+                    if (details) details.removeAttribute("open");
+                    targetWin.location.assign(url.toString());
+                }});
+            }});
+        }})();
+        </script>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_javascript=True,
     )
 
 
