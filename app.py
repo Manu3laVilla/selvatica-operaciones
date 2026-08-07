@@ -483,7 +483,7 @@ def _render_finance_charts(filtered) -> None:
                 strokeWidth=0.5,
             )
             .encode(
-                x=alt.X("etiqueta:N", title="Tipo", sort=["Ingresos", "Gastos"]),
+                x=alt.X("etiqueta:N", title="Tipo", sort=["Ingresos", "Gastos"], axis=_category_axis("Tipo")),
                 y=alt.Y(
                     "monto:Q",
                     title="Monto (COP)",
@@ -524,7 +524,7 @@ def _render_finance_charts(filtered) -> None:
                         strokeWidth=0.5,
                     )
                     .encode(
-                        x=alt.X("categoria:N", title="Categoría", sort="-y"),
+                        x=alt.X("categoria:N", title="Categoría", sort="-y", axis=_category_axis("Categoría")),
                         y=alt.Y(
                             "monto:Q",
                             title="Monto (COP)",
@@ -560,7 +560,7 @@ def _render_finance_charts(filtered) -> None:
                         strokeWidth=0.5,
                     )
                     .encode(
-                        x=alt.X("categoria:N", title="Categoría", sort="-y"),
+                        x=alt.X("categoria:N", title="Categoría", sort="-y", axis=_category_axis("Categoría")),
                         y=alt.Y(
                             "monto:Q",
                             title="Monto (COP)",
@@ -587,14 +587,67 @@ SELV_CHART_ACCENT = "#B57EDC"
 SELV_CHART_ACCENT_2 = "#C9A0E8"
 SELV_CHART_STROKE = "#8E5AB3"
 DASHBOARD_CHART_HEIGHT = 300
-DASHBOARD_PIE_HEIGHT = 340
+DASHBOARD_PIE_HEIGHT = 320
 
 
-def _apply_altair_theme(chart, *, pie: bool = False):
+def _categorical_legend(title: str, item_count: int):
+    import altair as alt
+
+    columns = 1 if item_count <= 2 else 2
+    return alt.Legend(
+        title=title,
+        orient="bottom",
+        direction="vertical",
+        columns=columns,
+        labelLimit=150,
+        rowPadding=8,
+        columnPadding=14,
+        padding=8,
+    )
+
+
+def _pie_chart_padding(item_count: int) -> dict[str, int]:
+    columns = 1 if item_count <= 2 else 2
+    rows = max(1, (item_count + columns - 1) // columns)
+    return {
+        "top": 16,
+        "bottom": max(96, rows * 28 + 56),
+        "left": 12,
+        "right": 12,
+    }
+
+
+def _category_axis(title: str | None = None, **kwargs):
+    import altair as alt
+
+    return alt.Axis(
+        title=title,
+        labelAngle=-35,
+        labelAlign="right",
+        labelBaseline="middle",
+        labelLimit=110,
+        labelOverlap=False,
+        labelPadding=4,
+        **kwargs,
+    )
+
+
+def _series_axis(title: str | None = None, **kwargs):
+    import altair as alt
+
+    return alt.Axis(
+        title=title,
+        labelLimit=140,
+        labelOverlap="greedy",
+        **kwargs,
+    )
+
+
+def _apply_altair_theme(chart, *, pie: bool = False, pie_padding: dict | None = None):
     chart = chart.properties(background="transparent").configure(background="transparent")
     if pie:
         chart = chart.properties(
-            padding={"top": 24, "bottom": 64, "left": 16, "right": 16},
+            padding=pie_padding or {"top": 16, "bottom": 96, "left": 12, "right": 12},
         )
     return (
         chart.configure_view(fill=None, stroke=None, strokeWidth=0)
@@ -603,14 +656,20 @@ def _apply_altair_theme(chart, *, pie: bool = False):
             titleColor="#4E572E",
             gridColor="rgba(201, 160, 232, 0.35)",
             domainColor="rgba(181, 126, 220, 0.55)",
+            labelLimit=120,
+            labelOverlap="greedy",
         )
         .configure_title(color="#4E572E", fontSize=16, anchor="start")
         .configure_legend(
             labelColor="#4E572E",
             titleColor="#4E572E",
             orient="bottom",
+            direction="vertical",
+            columns=2,
+            labelLimit=150,
+            rowPadding=8,
+            columnPadding=14,
             padding=8,
-            columnPadding=12,
         )
     )
 
@@ -886,6 +945,7 @@ def _render_dashboard_charts(sales, orders, products) -> None:
                             "mes_label:N",
                             title="Mes",
                             sort=alt.EncodingSortField(field="mes_key", order="ascending"),
+                            axis=_category_axis("Mes"),
                         ),
                         y=alt.Y("subtotal:Q", title="Ingresos (COP)", axis=alt.Axis(format=",.0f")),
                         tooltip=[
@@ -905,26 +965,34 @@ def _render_dashboard_charts(sales, orders, products) -> None:
             else:
                 status = orders["estado"].value_counts().reset_index()
                 status.columns = ["estado", "cantidad"]
+                status_count = len(status)
                 chart = (
                     alt.Chart(status)
-                    .mark_arc(innerRadius=48, outerRadius=82)
+                    .mark_arc(innerRadius=40, outerRadius=70)
                     .encode(
                         theta=alt.Theta("cantidad:Q"),
                         color=alt.Color(
                             "estado:N",
                             scale=alt.Scale(range=SELV_CHART_COLORS),
-                            legend=alt.Legend(
-                                title="Estado", orient="bottom", direction="horizontal"
-                            ),
+                            legend=_categorical_legend("Estado", status_count),
                         ),
                         tooltip=[
                             alt.Tooltip("estado:N", title="Estado"),
                             alt.Tooltip("cantidad:Q", title="Pedidos"),
                         ],
                     )
-                    .properties(height=DASHBOARD_PIE_HEIGHT)
+                    .properties(
+                        height=DASHBOARD_PIE_HEIGHT + max(0, status_count - 4) * 16,
+                    )
                 )
-                st.altair_chart(_apply_altair_theme(chart, pie=True), use_container_width=True)
+                st.altair_chart(
+                    _apply_altair_theme(
+                        chart,
+                        pie=True,
+                        pie_padding=_pie_chart_padding(status_count),
+                    ),
+                    use_container_width=True,
+                )
 
     with row2_left:
         with st.container(border=True):
@@ -954,6 +1022,7 @@ def _render_dashboard_charts(sales, orders, products) -> None:
                             "producto_nombre:N",
                             title=None,
                             sort=alt.EncodingSortField(field="cantidad", order="descending"),
+                            axis=_series_axis(),
                         ),
                         x=alt.X(
                             "cantidad:Q",
@@ -996,7 +1065,7 @@ def _render_dashboard_charts(sales, orders, products) -> None:
                         strokeWidth=0.5,
                     )
                     .encode(
-                        x=alt.X("categoria:N", title="Categoría", sort="-y"),
+                        x=alt.X("categoria:N", title="Categoría", sort="-y", axis=_category_axis("Categoría")),
                         y=alt.Y(
                             "subtotal:Q",
                             title="Ingresos (COP)",

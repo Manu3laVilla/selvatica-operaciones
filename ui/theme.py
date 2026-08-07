@@ -638,6 +638,27 @@ def _mobile_responsive_css() -> str:
             flex: 1 1 calc(50% - 0.35rem) !important;
         }}
 
+        .main .block-container:has(.selv-dashboard-filters-marker)
+        div[data-testid="stHorizontalBlock"]:has([data-testid="stVerticalBlockBorderWrapper"])
+        > [data-testid="column"] {{
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+        }}
+
+        [data-testid="stArrowVegaLiteChart"],
+        [data-testid="stVegaLiteChart"] {{
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }}
+
+        section[data-testid="stMain"] [data-testid="stHorizontalBlock"]:has([data-testid="stVegaLiteChart"])
+        > [data-testid="column"],
+        section[data-testid="stMain"] [data-testid="stHorizontalBlock"]:has([data-testid="stArrowVegaLiteChart"])
+        > [data-testid="column"] {{
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+        }}
+
         .selv-secnav-bar {{
             flex-wrap: nowrap !important;
             overflow-x: auto !important;
@@ -1478,17 +1499,26 @@ def get_global_css() -> str:
         color: #5C2020;
     }}
 
-    /* Gráficos Altair — fondo transparente y sin recorte */
+    /* Gráficos Altair — fondo transparente y sin desbordes */
     [data-testid="stArrowVegaLiteChart"],
-    [data-testid="stVegaLiteChart"],
+    [data-testid="stVegaLiteChart"] {{
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+    }}
+
     [data-testid="stArrowVegaLiteChart"] > div,
     [data-testid="stVegaLiteChart"] > div,
     .vega-embed,
-    .vega-embed .chart-wrapper,
+    .vega-embed .chart-wrapper {{
+        max-width: 100% !important;
+        background: transparent !important;
+        background-color: transparent !important;
+    }}
+
     .vega-embed .marks {{
         background: transparent !important;
         background-color: transparent !important;
-        overflow: visible !important;
     }}
 
     /* Dashboard — filtros y tarjetas de gráficos */
