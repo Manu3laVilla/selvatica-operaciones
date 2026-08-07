@@ -324,6 +324,27 @@ def _mobile_drawer_nav_css() -> str:
             padding-right: 0.35rem !important;
         }}
 
+        .selv-mobile-top-bar-icon-wrap {{
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            flex: 0 0 auto !important;
+            width: 2.15rem !important;
+            height: 2.15rem !important;
+            border-radius: 10px !important;
+            background: rgba(255, 255, 255, 0.72) !important;
+            border: 1px solid rgba(122, 94, 53, 0.1) !important;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75) !important;
+            overflow: hidden !important;
+        }}
+
+        .selv-mobile-top-bar-icon-wrap img {{
+            display: block !important;
+            width: 1.75rem !important;
+            height: 1.75rem !important;
+            object-fit: contain !important;
+        }}
+
         .selv-mobile-top-bar-title {{
             color: {c['olive']} !important;
             font-family: 'Nunito', 'Segoe UI', sans-serif !important;
@@ -1739,6 +1760,15 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
     current = st.session_state.get(state_key, next(iter(menu.values())))
     sidebar_compact_flag = "1" if st.session_state.get("sidebar_compact") else "0"
     current_label = MOBILE_NAV_LABELS.get(current, "Inicio")
+    icon_path = resolve_icon_path()
+    icon_html = ""
+    if icon_path is not None:
+        icon_src = html.escape(_asset_data_uri(icon_path))
+        icon_html = (
+            f'<div class="selv-mobile-top-bar-icon-wrap">'
+            f'<img class="selv-mobile-top-bar-icon" src="{icon_src}" alt="Selvatica" />'
+            f"</div>"
+        )
     links: list[str] = []
     for label, page_key in menu.items():
         active_class = " selv-mobile-nav-item--active" if current == page_key else ""
@@ -1769,6 +1799,7 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
                         {"".join(links)}
                     </nav>
                 </details>
+                {icon_html}
                 <div class="selv-mobile-top-bar-copy">
                     <span class="selv-mobile-top-bar-title">{html.escape(current_label)}</span>
                     <span class="selv-mobile-top-bar-subtitle">Selvatica · Centro de operaciones</span>
