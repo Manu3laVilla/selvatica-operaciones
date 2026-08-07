@@ -758,7 +758,7 @@ def _dashboard_filters_active(month_key: str, category: str, order_state: str) -
     return month_key != "Todos" or category != "Todas" or order_state != "Todos"
 
 
-def _dashboard_accessories_count(
+def _dashboard_products_count(
     products, filtered_sales, filtered_orders, category, month_key, order_state
 ) -> int:
     if not _dashboard_filters_active(month_key, category, order_state):
@@ -832,7 +832,7 @@ def _compute_dashboard_metrics(
     order_state,
 ) -> dict[str, int | float]:
     return {
-        "accesorios": _dashboard_accessories_count(
+        "productos": _dashboard_products_count(
             products, filtered_sales, filtered_orders, category, month_key, order_state
         ),
         "clientes": _dashboard_clients_count(
@@ -1234,7 +1234,7 @@ def _render_order_draft_table(products) -> float:
     import pandas as pd
 
     if not st.session_state.order_draft_items:
-        show_alert("Agrega uno o más accesorios al pedido.", "info")
+        show_alert("Agrega uno o más productos al pedido.", "info")
         return 0.0
 
     rows = []
@@ -1248,7 +1248,7 @@ def _render_order_draft_table(products) -> float:
         rows.append(
             {
                 "#": index + 1,
-                "Accesorio": item["producto_nombre"],
+                "Producto": item["producto_nombre"],
                 "Cantidad": qty,
                 "Precio unitario": format_cop(price),
                 "Subtotal": format_cop(subtotal),
@@ -1362,6 +1362,14 @@ def _preview_guard(action: str) -> bool:
     return True
 
 
+def _validate_product_fields(nombre: str, categoria: str) -> str | None:
+    if not nombre.strip():
+        return "El nombre es obligatorio."
+    if not str(categoria).strip():
+        return "La categoría es obligatoria."
+    return None
+
+
 def build_nav_menu(alerts: int) -> dict[str, str]:
     return {
         "Dashboard": "dashboard",
@@ -1403,7 +1411,7 @@ def _sales_total(sales) -> float:
 def page_dashboard() -> None:
     render_page_header(
         "Dashboard",
-        "Resumen general del inventario y operaciones de accesorios",
+        "Resumen general del inventario y operaciones de productos",
         "dashboard",
     )
 
@@ -1433,7 +1441,7 @@ def page_dashboard() -> None:
     )
     st.columns(1)[0].metric("Total en ventas", format_cop(metrics["total_ventas"]))
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Accesorios", metrics["accesorios"])
+    c1.metric("Productos", metrics["productos"])
     c2.metric("Clientes", metrics["clientes"])
     c3.metric("Ventas registradas", metrics["ventas"])
     c4.metric("Alertas de stock", metrics["alertas"])
@@ -1444,25 +1452,25 @@ def page_dashboard() -> None:
 def page_products() -> None:
     render_page_header(
         "Productos",
-        "Registra y administra tu inventario de accesorios",
+        "Registra y administra tu inventario de productos",
         "productos",
     )
 
-    tab = section_tabs(["Inventario", "Nuevo accesorio", "Editar accesorio"], "products_tabs")
+    tab = section_tabs(["Inventario", "Nuevo producto", "Editar producto"], "products_tabs")
 
     if tab == "Inventario":
         products = _products()
         if products.empty:
-            show_alert("No hay accesorios registrados.", "info")
+            show_alert("No hay productos registrados.", "info")
         else:
             render_table(products, key="products_table")
 
-    elif tab == "Nuevo accesorio":
+    elif tab == "Nuevo producto":
         with st.form("new_product_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             nombre = c1.text_input("Nombre *", placeholder="Ej: Collar con perlas")
             categoria = c2.selectbox(
-                "Categoría",
+                "Categoría *",
                 _product_category_names(active_only=True),
                 index=0,
             )
@@ -1472,38 +1480,38 @@ def page_products() -> None:
             )
             c3, c4, c5 = st.columns(3)
             precio = c3.number_input(
-                "Precio (COP)",
+                "Precio (COP) *",
                 min_value=0.0,
                 step=500.0,
                 format="%.0f",
             )
-            stock = c4.number_input("Stock inicial", min_value=0, step=1)
-            stock_minimo = c5.number_input("Stock mínimo (alerta)", min_value=0, step=1)
+            stock = c4.number_input("Stock inicial *", min_value=0, step=1)
+            stock_minimo = c5.number_input("Stock mínimo (alerta) *", min_value=0, step=1)
 
-            if st.form_submit_button("Guardar accesorio", type="primary"):
-                if not _preview_guard("guardar accesorios"):
+            if st.form_submit_button("Guardar producto", type="primary"):
+                if not _preview_guard("guardar productos"):
                     pass
-                elif not nombre.strip():
-                    show_alert("El nombre es obligatorio.", "error")
+                elif error := _validate_product_fields(nombre, categoria):
+                    show_alert(error, "error")
                 else:
                     product = create_product(
                         nombre, descripcion, categoria, precio, stock, stock_minimo
                     )
                     queue_action_message(
-                        f"Accesorio creado correctamente: {product['nombre']} ({product['id']})",
+                        f"Producto creado correctamente: {product['nombre']} ({product['id']})",
                     )
                     st.rerun()
 
-    elif tab == "Editar accesorio":
+    elif tab == "Editar producto":
         products = _products()
         if products.empty:
-            show_alert("Primero registra accesorios.", "info")
+            show_alert("Primero registra productos.", "info")
         else:
             product_options = {
                 f"{row['nombre']} ({row['id']})": row["id"]
                 for _, row in products.iterrows()
             }
-            selected = st.selectbox("Selecciona accesorio", list(product_options.keys()))
+            selected = st.selectbox("Selecciona producto", list(product_options.keys()))
             product_id = product_options[selected]
             current = products[products["id"] == product_id].iloc[0]
 
@@ -1514,9 +1522,9 @@ def page_products() -> None:
 
             with st.form("edit_product_form"):
                 c1, c2 = st.columns(2)
-                nombre = c1.text_input("Nombre", value=str(current["nombre"]))
+                nombre = c1.text_input("Nombre *", value=str(current["nombre"]))
                 categoria = c2.selectbox(
-                    "Categoría",
+                    "Categoría *",
                     category_options,
                     index=category_options.index(current_category)
                     if current_category in category_options
@@ -1527,21 +1535,30 @@ def page_products() -> None:
                 )
                 c3, c4, c5, c6 = st.columns(4)
                 precio = c3.number_input(
-                    "Precio (COP)",
+                    "Precio (COP) *",
                     min_value=0.0,
                     step=500.0,
                     format="%.0f",
                     value=float(current.get("precio", 0)),
                 )
-                stock = c4.number_input("Stock", value=int(current.get("stock", 0)))
+                stock = c4.number_input("Stock *", value=int(current.get("stock", 0)))
                 stock_minimo = c5.number_input(
-                    "Stock mínimo", value=int(current.get("stock_minimo", 0))
+                    "Stock mínimo *", value=int(current.get("stock_minimo", 0))
                 )
-                activo = c6.selectbox("Activo", ["Si", "No"], index=0)
+                current_activo = str(current.get("activo", "Si")).strip().lower()
+                activo = c6.selectbox(
+                    "Activo *",
+                    ["Si", "No"],
+                    index=0
+                    if current_activo in ("si", "sí", "yes", "true", "1")
+                    else 1,
+                )
 
                 if st.form_submit_button("Actualizar", type="primary"):
-                    if not _preview_guard("editar accesorios"):
+                    if not _preview_guard("editar productos"):
                         pass
+                    elif error := _validate_product_fields(nombre, categoria):
+                        show_alert(error, "error")
                     else:
                         update_product(
                             product_id,
@@ -1555,7 +1572,7 @@ def page_products() -> None:
                                 "activo": activo,
                             },
                         )
-                        queue_action_message("Accesorio actualizado correctamente.")
+                        queue_action_message("Producto actualizado correctamente.")
                         st.rerun()
 
 
@@ -1734,7 +1751,7 @@ def page_orders() -> None:
         products = _products(active_only=True)
 
         if customers.empty or products.empty:
-            show_alert("Necesitas clientes y accesorios para crear pedidos.", "warning")
+            show_alert("Necesitas clientes y productos para crear pedidos.", "warning")
         else:
             _render_new_order_tab(customers, products)
 
@@ -1755,7 +1772,7 @@ def page_orders() -> None:
                 render_table(
                     [
                         {
-                            "Accesorio": i["producto_nombre"],
+                            "Producto": i["producto_nombre"],
                             "Cantidad": i["cantidad"],
                             "Subtotal": i["subtotal"],
                         }
@@ -1782,15 +1799,15 @@ def page_orders() -> None:
 def page_alerts() -> None:
     render_page_header(
         "Alertas de stock",
-        "Accesorios que requieren reposición",
+        "Productos que requieren reposición",
         "alertas",
     )
 
     alerts = _alerts()
     if alerts.empty:
-        show_alert("Todo en orden. No hay accesorios con stock bajo.", "success")
+        show_alert("Todo en orden. No hay productos con stock bajo.", "success")
     else:
-        show_alert(f"{len(alerts)} accesorio(s) por debajo del stock mínimo.", "warning")
+        show_alert(f"{len(alerts)} producto(s) por debajo del stock mínimo.", "warning")
         render_table(
             alerts[
                 ["id", "nombre", "categoria", "stock", "stock_minimo", "faltante", "precio"]
@@ -2203,7 +2220,7 @@ def page_contabilidad() -> None:
                 _render_finance_charts(filtered)
 
         st.caption(
-            "Las ventas de accesorios se registran en la sección Ventas. "
+            "Las ventas de productos se registran en la sección Ventas. "
             "Aquí llevas capital, inversiones y gastos operativos."
         )
 
