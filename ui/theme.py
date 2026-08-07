@@ -256,8 +256,12 @@ def _mobile_streamlit_chrome_hide_css(body_prefix: str = "") -> str:
     """
 
 
+MOBILE_TOP_BAR_HEIGHT = "3.5rem"
+
+
 def _mobile_drawer_nav_css() -> str:
     c = COLORS
+    bar_height = MOBILE_TOP_BAR_HEIGHT
     return f"""
     .selv-mobile-nav-shell {{
         display: none;
@@ -265,13 +269,15 @@ def _mobile_drawer_nav_css() -> str:
 
     @media (max-width: 768px) {{
         .stElementContainer:has(.selv-mobile-nav-shell),
+        [data-testid="stHtml"]:has(.selv-mobile-nav-shell),
         [data-testid="stMarkdownContainer"]:has(.selv-mobile-nav-shell),
         [data-testid="stMarkdown"]:has(.selv-mobile-nav-shell) {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            width: 0 !important;
-            height: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: visible !important;
@@ -283,15 +289,65 @@ def _mobile_drawer_nav_css() -> str:
 
         .selv-mobile-nav-shell {{
             display: block !important;
-            pointer-events: none !important;
+            width: 100% !important;
+            pointer-events: auto !important;
         }}
 
-        .selv-mobile-nav-details {{
+        .selv-mobile-top-bar {{
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
-            z-index: 999999 !important;
-            pointer-events: none !important;
+            right: 0 !important;
+            z-index: 1000001 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            min-height: calc({bar_height} + env(safe-area-inset-top, 0px)) !important;
+            padding: env(safe-area-inset-top, 0px) 0.85rem 0 0.75rem !important;
+            background: linear-gradient(
+                180deg,
+                {c['white']} 0%,
+                {c['cream']} 72%,
+                {c['pink_soft']} 100%
+            ) !important;
+            border-bottom: 2px solid rgba(241, 193, 223, 0.9) !important;
+            box-shadow: 0 6px 18px rgba(78, 87, 46, 0.12) !important;
+            box-sizing: border-box !important;
+        }}
+
+        .selv-mobile-top-bar-copy {{
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            min-width: 0 !important;
+            flex: 1 1 auto !important;
+            padding-right: 0.35rem !important;
+        }}
+
+        .selv-mobile-top-bar-title {{
+            color: {c['olive']} !important;
+            font-family: 'Nunito', 'Segoe UI', sans-serif !important;
+            font-size: 1rem !important;
+            font-weight: 800 !important;
+            line-height: 1.15 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }}
+
+        .selv-mobile-top-bar-subtitle {{
+            color: {c['brown']} !important;
+            font-family: 'Nunito', 'Segoe UI', sans-serif !important;
+            font-size: 0.72rem !important;
+            font-weight: 700 !important;
+            line-height: 1.2 !important;
+            opacity: 0.9 !important;
+        }}
+
+        .selv-mobile-nav-details {{
+            position: static !important;
+            flex: 0 0 auto !important;
+            pointer-events: auto !important;
         }}
 
         .selv-mobile-nav-details > summary {{
@@ -303,12 +359,9 @@ def _mobile_drawer_nav_css() -> str:
         }}
 
         .selv-mobile-menu-toggle {{
-            position: fixed !important;
-            top: calc(0.65rem + env(safe-area-inset-top, 0px)) !important;
-            left: 0.75rem !important;
-            z-index: 1000001 !important;
-            width: 2.65rem !important;
-            height: 2.65rem !important;
+            position: relative !important;
+            width: 2.55rem !important;
+            height: 2.55rem !important;
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
@@ -316,10 +369,10 @@ def _mobile_drawer_nav_css() -> str:
             gap: 0.28rem !important;
             margin: 0 !important;
             padding: 0 !important;
-            border: 2px solid rgba(122, 94, 53, 0.18) !important;
+            border: 1px solid rgba(122, 94, 53, 0.14) !important;
             border-radius: 12px !important;
-            background: linear-gradient(180deg, {c['white']} 0%, {c['cream']} 100%) !important;
-            box-shadow: 0 4px 14px rgba(78, 87, 46, 0.14) !important;
+            background: rgba(255, 255, 255, 0.82) !important;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
             cursor: pointer !important;
             pointer-events: auto !important;
             box-sizing: border-box !important;
@@ -327,10 +380,11 @@ def _mobile_drawer_nav_css() -> str:
 
         .selv-mobile-menu-toggle span {{
             display: block !important;
-            width: 1.15rem !important;
+            width: 1.1rem !important;
             height: 2px !important;
             border-radius: 999px !important;
             background: {c['olive']} !important;
+            transition: transform 0.2s ease, opacity 0.2s ease !important;
         }}
 
         .selv-mobile-nav-details[open] .selv-mobile-menu-toggle span:nth-child(1) {{
@@ -348,7 +402,10 @@ def _mobile_drawer_nav_css() -> str:
         .selv-mobile-nav-details[open]::before {{
             content: "" !important;
             position: fixed !important;
-            inset: 0 !important;
+            top: calc({bar_height} + env(safe-area-inset-top, 0px)) !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
             background: rgba(78, 87, 46, 0.35) !important;
             z-index: 999998 !important;
             pointer-events: auto !important;
@@ -356,7 +413,7 @@ def _mobile_drawer_nav_css() -> str:
 
         .selv-mobile-drawer {{
             position: fixed !important;
-            top: 0 !important;
+            top: calc({bar_height} + env(safe-area-inset-top, 0px)) !important;
             left: 0 !important;
             bottom: 0 !important;
             width: min(18.5rem, 84vw) !important;
@@ -364,8 +421,7 @@ def _mobile_drawer_nav_css() -> str:
             flex-direction: column !important;
             gap: 0.35rem !important;
             margin: 0 !important;
-            padding: calc(4.25rem + env(safe-area-inset-top, 0px)) 0.85rem
-                calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
+            padding: 0.85rem 0.85rem calc(1rem + env(safe-area-inset-bottom, 0px)) !important;
             background: linear-gradient(180deg, {c['cream']} 0%, {c['pink_soft']} 100%) !important;
             border-right: 2px solid rgba(241, 193, 223, 0.85) !important;
             box-shadow: 8px 0 28px rgba(78, 87, 46, 0.16) !important;
@@ -475,7 +531,7 @@ def _mobile_bottom_bar_css() -> str:
 
         section[data-testid="stMain"] .block-container,
         [data-testid="stMainBlockContainer"] {{
-            padding-top: calc(3.75rem + env(safe-area-inset-top, 0px)) !important;
+            padding-top: calc({MOBILE_TOP_BAR_HEIGHT} + env(safe-area-inset-top, 0px) + 0.85rem) !important;
         }}
 
         .st-key-mobile_bottom_nav,
@@ -512,7 +568,7 @@ def _mobile_responsive_css() -> str:
         [data-testid="stMainBlockContainer"] {{
             padding-left: 0.85rem !important;
             padding-right: 0.85rem !important;
-            padding-top: calc(3.75rem + env(safe-area-inset-top, 0px)) !important;
+            padding-top: calc({MOBILE_TOP_BAR_HEIGHT} + env(safe-area-inset-top, 0px) + 0.85rem) !important;
             max-width: 100% !important;
         }}
 
@@ -1682,6 +1738,7 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
 
     current = st.session_state.get(state_key, next(iter(menu.values())))
     sidebar_compact_flag = "1" if st.session_state.get("sidebar_compact") else "0"
+    current_label = MOBILE_NAV_LABELS.get(current, "Inicio")
     links: list[str] = []
     for label, page_key in menu.items():
         active_class = " selv-mobile-nav-item--active" if current == page_key else ""
@@ -1703,14 +1760,20 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
     st.html(
         f"""
         <div class="selv-mobile-nav-shell" aria-hidden="false">
-            <details class="selv-mobile-nav-details">
-                <summary class="selv-mobile-menu-toggle" aria-label="Abrir menú">
-                    <span></span><span></span><span></span>
-                </summary>
-                <nav class="selv-mobile-drawer" aria-label="Navegación principal">
-                    {"".join(links)}
-                </nav>
-            </details>
+            <header class="selv-mobile-top-bar">
+                <details class="selv-mobile-nav-details">
+                    <summary class="selv-mobile-menu-toggle" aria-label="Abrir menú">
+                        <span></span><span></span><span></span>
+                    </summary>
+                    <nav class="selv-mobile-drawer" aria-label="Navegación principal">
+                        {"".join(links)}
+                    </nav>
+                </details>
+                <div class="selv-mobile-top-bar-copy">
+                    <span class="selv-mobile-top-bar-title">{html.escape(current_label)}</span>
+                    <span class="selv-mobile-top-bar-subtitle">Selvatica · Centro de operaciones</span>
+                </div>
+            </header>
         </div>
         <script>
         (function () {{
