@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import datetime
 from functools import lru_cache
@@ -9,10 +10,12 @@ from typing import Any
 import gspread
 import pandas as pd
 from google.oauth2.service_account import Credentials
+from gspread.exceptions import APIError
 
 from config import (
     CREDENTIALS_PATH,
     SHEET_SCHEMAS,
+    SHEETS_CACHE_TTL_SECONDS,
     get_service_account_info,
     get_spreadsheet_id,
     has_google_credentials,
@@ -48,6 +51,9 @@ class SheetsDB:
     def __init__(self) -> None:
         self._client: gspread.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
+        self._worksheets: dict[str, gspread.Worksheet] = {}
+        self._values_cache: dict[str, tuple[float, list[list[str]]]] = {}
+        self._sheets_verified = False
 
     def connect(self) -> gspread.Spreadsheet:
         if self._spreadsheet is not None:
@@ -66,6 +72,9 @@ class SheetsDB:
         return self._spreadsheet
 
     def _ensure_sheets(self) -> None:
+        if self._sheets_verified:
+            return
+
         assert self._spreadsheet is not None
         existing = {ws.title for ws in self._spreadsheet.worksheets()}
 
@@ -81,13 +90,44 @@ class SheetsDB:
                 if current != headers:
                     worksheet.update("A1", [headers])
 
+        self._sheets_verified = True
+
+    def _invalidate_sheet_cache(self, sheet_name: str | None = None) -> None:
+        if sheet_name is None:
+            self._values_cache.clear()
+        else:
+            self._values_cache.pop(sheet_name, None)
+
+    def _get_sheet_values(self, sheet_name: str) -> list[list[str]]:
+        now = time.monotonic()
+        cached = self._values_cache.get(sheet_name)
+        if cached is not None:
+            cached_at, values = cached
+            if now - cached_at < SHEETS_CACHE_TTL_SECONDS:
+                return values
+
+        worksheet = self.get_worksheet(sheet_name)
+        try:
+            values = worksheet.get_all_values()
+        except APIError as exc:
+            if cached is not None and "429" in str(exc):
+                return cached[1]
+            raise
+
+        self._values_cache[sheet_name] = (now, values)
+        return values
+
     def get_worksheet(self, name: str) -> gspread.Worksheet:
+        if name in self._worksheets:
+            return self._worksheets[name]
+
         spreadsheet = self.connect()
-        return spreadsheet.worksheet(name)
+        worksheet = spreadsheet.worksheet(name)
+        self._worksheets[name] = worksheet
+        return worksheet
 
     def get_records(self, sheet_name: str) -> list[dict[str, Any]]:
-        worksheet = self.get_worksheet(sheet_name)
-        values = worksheet.get_all_values()
+        values = self._get_sheet_values(sheet_name)
         if not values:
             return []
 
@@ -119,29 +159,34 @@ class SheetsDB:
     def append_row(self, sheet_name: str, row: list[Any]) -> None:
         worksheet = self.get_worksheet(sheet_name)
         worksheet.append_row(row, value_input_option="USER_ENTERED")
+        self._invalidate_sheet_cache(sheet_name)
 
     def update_row(self, sheet_name: str, row_number: int, row: list[Any]) -> None:
         worksheet = self.get_worksheet(sheet_name)
         headers = SHEET_SCHEMAS[sheet_name]
         cell_range = f"A{row_number}:{chr(64 + len(headers))}{row_number}"
         worksheet.update(cell_range, [row], value_input_option="USER_ENTERED")
+        self._invalidate_sheet_cache(sheet_name)
 
     def find_row_number(self, sheet_name: str, id_field: str, record_id: str) -> int | None:
-        worksheet = self.get_worksheet(sheet_name)
-        headers = worksheet.row_values(1)
+        values = self._get_sheet_values(sheet_name)
+        if not values:
+            return None
+
+        headers = [str(cell).strip() for cell in values[0]]
         if id_field not in headers:
             return None
 
-        id_col = headers.index(id_field) + 1
-        ids = worksheet.col_values(id_col)
-        for index, value in enumerate(ids[1:], start=2):
-            if str(value) == str(record_id):
+        id_col = headers.index(id_field)
+        for index, row in enumerate(values[1:], start=2):
+            if len(row) > id_col and str(row[id_col]) == str(record_id):
                 return index
         return None
 
     def delete_row(self, sheet_name: str, row_number: int) -> None:
         worksheet = self.get_worksheet(sheet_name)
         worksheet.delete_rows(row_number)
+        self._invalidate_sheet_cache(sheet_name)
 
 
 @lru_cache(maxsize=1)

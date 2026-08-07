@@ -156,6 +156,9 @@ SHEET_SCHEMAS = {
 
 CURRENCY_CODE = "COP"
 
+# Segundos que se reutilizan lecturas de Google Sheets entre reruns de Streamlit.
+SHEETS_CACHE_TTL_SECONDS = 60
+
 
 def format_cop(amount: float | int | None) -> str:
     """Formatea un valor en pesos colombianos (ej. $28.500)."""
