@@ -1609,7 +1609,7 @@ def page_customers() -> None:
             current = customers[customers["id"] == customer_id].iloc[0]
 
             with st.form("edit_customer_form"):
-                nombre = st.text_input("Nombre", value=str(current["nombre"]))
+                nombre = st.text_input("Nombre *", value=str(current["nombre"]))
                 c1, c2 = st.columns(2)
                 email = c1.text_input("Email", value=str(current.get("email", "")))
                 telefono = c2.text_input("Teléfono", value=str(current.get("telefono", "")))
@@ -1619,6 +1619,8 @@ def page_customers() -> None:
                 if st.form_submit_button("Actualizar", type="primary"):
                     if not _preview_guard("editar clientes"):
                         pass
+                    elif not nombre.strip():
+                        show_alert("El nombre es obligatorio.", "error")
                     else:
                         update_customer(
                             customer_id,
