@@ -1799,6 +1799,21 @@ def show_alert(message: str, kind: str = "info") -> None:
     st.markdown(f'<div class="{css_class}">{message}</div>', unsafe_allow_html=True)
 
 
+def queue_action_message(message: str, kind: str = "success") -> None:
+    """Guarda un mensaje para mostrarlo tras un st.rerun()."""
+    import streamlit as st
+
+    st.session_state["selv_action_message"] = {"message": message, "kind": kind}
+
+
+def render_action_message() -> None:
+    import streamlit as st
+
+    payload = st.session_state.pop("selv_action_message", None)
+    if payload:
+        show_alert(payload["message"], payload["kind"])
+
+
 def render_sidebar_nav(menu: dict[str, str], state_key: str = "nav_page") -> str:
     import streamlit as st
 

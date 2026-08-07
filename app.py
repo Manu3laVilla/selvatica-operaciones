@@ -59,6 +59,8 @@ from ui.theme import (
     show_alert,
     sync_mobile_nav_from_query,
     sync_sidebar_compact_state,
+    queue_action_message,
+    render_action_message,
 )
 
 st.set_page_config(
@@ -348,13 +350,29 @@ def _normalize_finance_movements(movements):
     return df.sort_values("fecha_dt", ascending=False)
 
 
-def _finance_filter_controls(movements):
+def _finance_filter_controls(
+    movements,
+    *,
+    optional: bool = False,
+    key_prefix: str = "contabilidad",
+):
     import pandas as pd
     from datetime import date
 
     df = _normalize_finance_movements(movements)
     if df.empty:
         return df
+
+    if optional:
+        apply_filters = st.checkbox(
+            "Aplicar filtros",
+            value=False,
+            key=f"{key_prefix}_apply_filters",
+            help="Desactivado muestra todos los movimientos del sistema.",
+        )
+        if not apply_filters:
+            st.caption("Mostrando la totalidad de movimientos registrados.")
+            return df.sort_values("fecha_dt", ascending=False)
 
     min_date = df["fecha_dt"].min().date()
     max_date = df["fecha_dt"].max().date()
@@ -367,7 +385,7 @@ def _finance_filter_controls(movements):
         tipo_filter = st.selectbox(
             "Tipo de movimiento",
             ["Todos", "Ingresos", "Gastos"],
-            key="contabilidad_filter_tipo",
+            key=f"{key_prefix}_filter_tipo",
         )
     with c2:
         fecha_desde = st.date_input(
@@ -375,7 +393,7 @@ def _finance_filter_controls(movements):
             value=min_date,
             min_value=min_date,
             max_value=max_date,
-            key="contabilidad_filter_desde",
+            key=f"{key_prefix}_filter_desde",
         )
     with c3:
         fecha_hasta = st.date_input(
@@ -383,7 +401,7 @@ def _finance_filter_controls(movements):
             value=max_date,
             min_value=min_date,
             max_value=max_date,
-            key="contabilidad_filter_hasta",
+            key=f"{key_prefix}_filter_hasta",
         )
 
     if fecha_desde > fecha_hasta:
@@ -1325,10 +1343,9 @@ def _render_new_order_tab(customers, products) -> None:
                 notas=_compose_order_notes(direccion, notas),
             )
             _clear_order_draft()
-            show_alert(
-                f"Pedido creado: {order['id']} — {len(items)} producto(s), "
+            queue_action_message(
+                f"Pedido creado correctamente: {order['id']} — {len(items)} producto(s), "
                 f"total {format_cop(order['total'])}",
-                "success",
             )
             st.rerun()
         except Exception as exc:
@@ -1469,7 +1486,9 @@ def page_products() -> None:
                     product = create_product(
                         nombre, descripcion, categoria, precio, stock, stock_minimo
                     )
-                    show_alert(f"Accesorio creado: {product['nombre']} ({product['id']})", "success")
+                    queue_action_message(
+                        f"Accesorio creado correctamente: {product['nombre']} ({product['id']})",
+                    )
                     st.rerun()
 
     elif tab == "Editar accesorio":
@@ -1533,7 +1552,7 @@ def page_products() -> None:
                                 "activo": activo,
                             },
                         )
-                        show_alert("Accesorio actualizado.", "success")
+                        queue_action_message("Accesorio actualizado correctamente.")
                         st.rerun()
 
 
@@ -1569,7 +1588,9 @@ def page_customers() -> None:
                     show_alert("El nombre es obligatorio.", "error")
                 else:
                     customer = create_customer(nombre, email, telefono, direccion, notas)
-                    show_alert(f"Cliente creado: {customer['nombre']} ({customer['id']})", "success")
+                    queue_action_message(
+                        f"Cliente creado correctamente: {customer['nombre']} ({customer['id']})",
+                    )
                     st.rerun()
 
     elif tab == "Editar cliente":
@@ -1606,7 +1627,7 @@ def page_customers() -> None:
                                 "notas": notas,
                             },
                         )
-                        show_alert("Cliente actualizado.", "success")
+                        queue_action_message("Cliente actualizado correctamente.")
                         st.rerun()
 
 
@@ -1743,7 +1764,9 @@ def page_orders() -> None:
             if st.button("Actualizar estado", type="primary"):
                 try:
                     if _update_order_status(order_id, new_status):
-                        show_alert(f"Pedido {order_id} actualizado a: {new_status}", "success")
+                        queue_action_message(
+                            f"Pedido actualizado correctamente: {order_id} → {new_status}",
+                        )
                         st.rerun()
                     else:
                         show_alert("No se encontró el pedido.", "error")
@@ -1776,6 +1799,7 @@ def _render_catalog_list_table(df, *, key: str) -> None:
         show_alert("No hay registros en este catálogo.", "info")
         return
     display = df.copy()
+    display = display.drop(columns=["orden", "fecha_registro"], errors="ignore")
     if "genera_venta" in display.columns:
         display["genera_venta"] = display["genera_venta"].map(
             lambda v: "Sí" if _catalog_is_active(v) else "No"
@@ -1836,7 +1860,9 @@ def _render_simple_catalog_admin(
                             )
                         else:
                             create_fn(nombre.strip())
-                        show_alert(f"«{nombre.strip()}» creado correctamente.", "success")
+                        queue_action_message(
+                            f"Registro creado correctamente: «{nombre.strip()}»",
+                        )
                         st.rerun()
                     except Exception as exc:
                         show_alert(str(exc), "error")
@@ -1864,12 +1890,6 @@ def _render_simple_catalog_admin(
                     ["Si", "No"],
                     index=0 if _catalog_is_active(current.get("activo", "Si")) else 1,
                 )
-                orden = st.number_input(
-                    "Orden",
-                    min_value=1,
-                    step=1,
-                    value=int(current.get("orden", 1)),
-                )
                 if st.form_submit_button("Actualizar", type="primary"):
                     if not _preview_guard(f"editar {title.lower()}"):
                         pass
@@ -1878,7 +1898,6 @@ def _render_simple_catalog_admin(
                             updates = {
                                 "nombre": nombre,
                                 "activo": activo,
-                                "orden": orden,
                             }
                             if st.session_state.preview_mode:
                                 _init_preview_catalogs()
@@ -1888,7 +1907,9 @@ def _render_simple_catalog_admin(
                                         break
                             else:
                                 update_fn(item_id, updates)
-                            show_alert("Registro actualizado.", "success")
+                            queue_action_message(
+                                f"Registro actualizado correctamente: «{nombre.strip()}»",
+                            )
                             st.rerun()
                         except Exception as exc:
                             show_alert(str(exc), "error")
@@ -1925,7 +1946,7 @@ def _render_simple_catalog_admin(
                             ]
                         else:
                             delete_fn(item_id)
-                        show_alert("Registro eliminado.", "success")
+                        queue_action_message("Registro eliminado correctamente.")
                         st.rerun()
                     except Exception as exc:
                         show_alert(str(exc), "error")
@@ -1979,7 +2000,9 @@ def _render_order_states_admin() -> None:
                                 genera_venta=genera_venta,
                                 revierte_venta=revierte_venta,
                             )
-                        show_alert(f"Estado «{nombre.strip()}» creado.", "success")
+                        queue_action_message(
+                            f"Estado creado correctamente: «{nombre.strip()}»",
+                        )
                         st.rerun()
                     except Exception as exc:
                         show_alert(str(exc), "error")
@@ -2007,12 +2030,6 @@ def _render_order_states_admin() -> None:
                     ["Si", "No"],
                     index=0 if _catalog_is_active(current.get("activo", "Si")) else 1,
                 )
-                orden = st.number_input(
-                    "Orden",
-                    min_value=1,
-                    step=1,
-                    value=int(current.get("orden", 1)),
-                )
                 c1, c2 = st.columns(2)
                 genera_venta = c1.checkbox(
                     "Genera venta efectiva",
@@ -2030,7 +2047,6 @@ def _render_order_states_admin() -> None:
                             updates = {
                                 "nombre": nombre,
                                 "activo": activo,
-                                "orden": orden,
                                 "genera_venta": "Si" if genera_venta else "No",
                                 "revierte_venta": "Si" if revierte_venta else "No",
                             }
@@ -2042,7 +2058,9 @@ def _render_order_states_admin() -> None:
                                         break
                             else:
                                 update_order_state(item_id, updates)
-                            show_alert("Estado actualizado.", "success")
+                            queue_action_message(
+                                f"Estado actualizado correctamente: «{nombre.strip()}»",
+                            )
                             st.rerun()
                         except Exception as exc:
                             show_alert(str(exc), "error")
@@ -2082,7 +2100,7 @@ def _render_order_states_admin() -> None:
                             ]
                         else:
                             delete_order_state(item_id)
-                        show_alert("Estado eliminado.", "success")
+                        queue_action_message("Estado eliminado correctamente.")
                         st.rerun()
                     except Exception as exc:
                         show_alert(str(exc), "error")
@@ -2156,7 +2174,11 @@ def page_contabilidad() -> None:
         if movements.empty:
             show_alert("Aún no hay movimientos registrados.", "info")
         else:
-            filtered = _finance_filter_controls(movements)
+            filtered = _finance_filter_controls(
+                movements,
+                optional=True,
+                key_prefix="contabilidad_resumen",
+            )
 
             if filtered.empty:
                 show_alert("No hay movimientos con los filtros seleccionados.", "info")
@@ -2202,9 +2224,9 @@ def page_contabilidad() -> None:
                         record = _register_finance_movement(
                             "Ingreso", categoria, concepto, monto, notas
                         )
-                        show_alert(
-                            f"Ingreso registrado: {record['concepto']} — {format_cop(record['monto'])}",
-                            "success",
+                        queue_action_message(
+                            f"Ingreso registrado correctamente: {record['concepto']} — "
+                            f"{format_cop(record['monto'])}",
                         )
                         st.rerun()
                     except Exception as exc:
@@ -2232,9 +2254,9 @@ def page_contabilidad() -> None:
                         record = _register_finance_movement(
                             "Gasto", categoria, concepto, monto, notas
                         )
-                        show_alert(
-                            f"Gasto registrado: {record['concepto']} — {format_cop(record['monto'])}",
-                            "success",
+                        queue_action_message(
+                            f"Gasto registrado correctamente: {record['concepto']} — "
+                            f"{format_cop(record['monto'])}",
                         )
                         st.rerun()
                     except Exception as exc:
@@ -2244,7 +2266,10 @@ def page_contabilidad() -> None:
         if movements.empty:
             show_alert("No hay movimientos registrados.", "info")
         else:
-            filtered = _finance_filter_controls(movements)
+            filtered = _finance_filter_controls(
+                movements,
+                key_prefix="contabilidad_movimientos",
+            )
             if filtered.empty:
                 show_alert("No hay movimientos con los filtros seleccionados.", "info")
             else:
@@ -2259,6 +2284,7 @@ def main() -> None:
     sync_sidebar_compact_state()
     sync_mobile_nav_from_query(menu)
     page = sidebar()
+    render_action_message()
 
     pages = {
         "dashboard": page_dashboard,
