@@ -1278,7 +1278,9 @@ def _render_order_draft_table(products) -> float:
             }
         )
 
+    st.markdown('<div style="margin-top: 1rem;"></div>', unsafe_allow_html=True)
     render_table(rows, key="order_draft_table", paginate=False)
+    st.markdown('<div style="margin-top: 1.25rem;"></div>', unsafe_allow_html=True)
     st.metric("Total del pedido", format_cop(total))
     return total
 
@@ -1327,6 +1329,7 @@ def _render_new_order_tab(customers, products) -> None:
                     _add_order_draft_item(producto_id, producto_nombre, cantidad)
                     st.rerun()
 
+    st.markdown('<div style="margin-top: 0.75rem;"></div>', unsafe_allow_html=True)
     _render_order_draft_table(products)
 
     if st.session_state.order_draft_items:
