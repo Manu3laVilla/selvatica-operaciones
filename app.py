@@ -54,6 +54,7 @@ from services.order_service import (
 from services.product_service import create_product, list_products, update_product
 from services.sale_service import list_sales, sales_exist_for_order
 from services.db import get_db, new_id, now_str
+from ui.auth_persistence import sync_session_url_token
 from ui.login import ensure_authenticated, render_logout_button
 from ui.theme import (
     get_global_css,
@@ -2551,6 +2552,8 @@ def page_contabilidad() -> None:
 def main() -> None:
     if not ensure_authenticated():
         return
+
+    sync_session_url_token()
 
     init_connection()
     menu = build_nav_menu(_alert_count())

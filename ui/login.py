@@ -7,6 +7,7 @@ import streamlit as st
 
 from services.auth_service import (
     clear_auth_session,
+    create_auth_token,
     establish_auth_session,
     get_auth_username,
     get_session_ttl_seconds,
@@ -17,6 +18,7 @@ from services.auth_service import (
 )
 from ui.auth_persistence import (
     clear_auth_cookie,
+    sync_session_url_token,
     try_restore_auth_from_cookie,
     write_auth_cookie,
 )
@@ -192,6 +194,7 @@ def _renew_session_if_needed() -> None:
     touch_auth_session(st.session_state)
     st.session_state["_selv_auth_last_renew"] = now
     write_auth_cookie()
+    st.session_state.pop("_selv_url_sess_synced", None)
 
 
 def is_authenticated() -> bool:
@@ -203,6 +206,7 @@ def is_authenticated() -> bool:
     if not st.session_state.get("_selv_auth_client_synced"):
         write_auth_cookie()
         st.session_state["_selv_auth_client_synced"] = True
+        st.session_state.pop("_selv_url_sess_synced", None)
     return True
 
 
@@ -242,6 +246,12 @@ def ensure_authenticated() -> bool:
             )
             st.session_state["_selv_auth_last_renew"] = time.time()
             write_auth_cookie()
+            token = create_auth_token(
+                str(st.session_state.get("selv_auth_user") or ""),
+                float(st.session_state.selv_auth_expires_at),
+            )
+            st.query_params["selv_sess"] = token
+            st.session_state["_selv_url_sess_synced"] = True
             st.rerun()
         st.error("Usuario o contraseña incorrectos.")
 
@@ -272,4 +282,5 @@ def render_logout_button() -> None:
         clear_auth_cookie()
         if "selv_sess" in st.query_params:
             del st.query_params["selv_sess"]
+        st.session_state.pop("_selv_url_sess_synced", None)
         st.rerun()

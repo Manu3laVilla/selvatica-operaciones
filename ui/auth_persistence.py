@@ -1,4 +1,4 @@
-"""Persiste la sesión en el navegador (cookie vía componente + localStorage de respaldo)."""
+"""Persiste la sesión: ?selv_sess= en la URL (fiable en Streamlit Cloud) + respaldos."""
 from __future__ import annotations
 
 import json
@@ -19,6 +19,7 @@ from services.auth_service import (
 _STORAGE_KEY = AUTH_COOKIE_NAME
 _TTL_KEY = f"{AUTH_COOKIE_NAME}_ttl"
 _RESTORE_FLAG = "_selv_auth_restore_scheduled"
+_URL_SYNC_FLAG = "_selv_url_sess_synced"
 
 
 def _cookie_secure() -> bool:
@@ -26,21 +27,6 @@ def _cookie_secure() -> bool:
         return str(st.context.url or "").startswith("https://")
     except Exception:
         return False
-
-
-def get_cookie_manager():
-    """Una sola instancia por sesión de Streamlit (evita DuplicateElementKey)."""
-    if not is_auth_enabled():
-        return None
-    mgr = st.session_state.get("_selv_cookie_mgr")
-    if mgr is None:
-        import extra_streamlit_components as esc
-
-        st.session_state["_selv_cookie_mgr"] = esc.CookieManager(
-            key="selv_auth_cookie_manager"
-        )
-        mgr = st.session_state["_selv_cookie_mgr"]
-    return mgr
 
 
 def _read_cookie_header_token() -> str | None:
@@ -56,7 +42,7 @@ def _read_cookie_header_token() -> str | None:
     return None
 
 
-def _read_http_cookie_token() -> str | None:
+def _read_persisted_token() -> str | None:
     query_token = st.query_params.get("selv_sess")
     if query_token:
         return str(query_token).strip()
@@ -69,20 +55,6 @@ def _read_http_cookie_token() -> str | None:
         return unquote(str(cookie_val)).strip()
 
     return _read_cookie_header_token()
-
-
-def _read_persisted_token() -> str | None:
-    token = _read_http_cookie_token()
-    if token:
-        return token
-
-    mgr = get_cookie_manager()
-    if mgr is not None:
-        val = mgr.get(AUTH_COOKIE_NAME)
-        if val:
-            return str(val).strip()
-
-    return None
 
 
 def _top_window_script(body: str) -> None:
@@ -100,7 +72,6 @@ def _top_window_script(body: str) -> None:
 
 
 def _persist_top_window_cookie(token: str, max_age: int) -> None:
-    """Cookie en la ventana principal: sobrevive Ctrl+Shift+R y llega al servidor."""
     secure_flag = " + (w.location.protocol === 'https:' ? '; Secure' : '')"
     _top_window_script(
         f"""
@@ -131,28 +102,48 @@ def _sync_local_storage(token: str, max_age: int) -> None:
     )
 
 
+def _current_session_token() -> str | None:
+    if not is_session_valid(st.session_state):
+        return None
+    username = str(st.session_state.get("selv_auth_user") or "")
+    expires_at = float(st.session_state.selv_auth_expires_at)
+    return create_auth_token(username, expires_at)
+
+
+def sync_session_url_token() -> None:
+    """Mantiene selv_sess en la URL para sobrevivir recargas (Ctrl+Shift+R)."""
+    if not is_auth_enabled():
+        return
+
+    if not is_session_valid(st.session_state):
+        if "selv_sess" in st.query_params:
+            del st.query_params["selv_sess"]
+        st.session_state.pop(_URL_SYNC_FLAG, None)
+        return
+
+    if st.session_state.get(_URL_SYNC_FLAG):
+        return
+
+    url_token = st.query_params.get("selv_sess")
+    if url_token and verify_auth_token(str(url_token)):
+        st.session_state[_URL_SYNC_FLAG] = True
+        return
+
+    token = _current_session_token()
+    if not token:
+        return
+
+    st.query_params["selv_sess"] = token
+    st.session_state[_URL_SYNC_FLAG] = True
+    st.rerun()
+
+
 def persist_client_auth(token: str, max_age: int) -> None:
     _persist_top_window_cookie(token, max_age)
     _sync_local_storage(token, max_age)
-    mgr = get_cookie_manager()
-    if mgr is None:
-        return
-    mgr.set(
-        AUTH_COOKIE_NAME,
-        token,
-        key="selv_auth_set",
-        path="/",
-        max_age=float(max(60, int(max_age))),
-        secure=_cookie_secure() or None,
-        same_site="lax",
-    )
 
 
 def clear_client_auth() -> None:
-    mgr = get_cookie_manager()
-    if mgr is not None:
-        mgr.delete(AUTH_COOKIE_NAME, key="selv_auth_del")
-
     secure = "; Secure" if _cookie_secure() else ""
     _top_window_script(
         f"""
@@ -168,12 +159,12 @@ def clear_client_auth() -> None:
         """
     )
     st.session_state.pop("_selv_auth_persisted_token", None)
-    st.session_state.pop("_selv_cookie_mgr", None)
     st.session_state.pop(_RESTORE_FLAG, None)
+    st.session_state.pop(_URL_SYNC_FLAG, None)
 
 
 def request_client_auth_restore() -> None:
-    """Respaldo: localStorage → ?selv_sess= (una recarga) si no hay cookie legible."""
+    """Respaldo: localStorage → ?selv_sess= si la URL aún no tiene token."""
     if not is_auth_enabled() or is_session_valid(st.session_state):
         st.session_state.pop(_RESTORE_FLAG, None)
         return
@@ -214,6 +205,7 @@ def _restore_from_token(token: str) -> bool:
     establish_auth_session(st.session_state, username, expires_at=expires_at)
     st.session_state.pop(_RESTORE_FLAG, None)
     st.session_state["_selv_auth_last_renew"] = time.time()
+    st.session_state[_URL_SYNC_FLAG] = True
     return True
 
 
@@ -227,13 +219,10 @@ def try_restore_auth_from_cookie() -> bool:
         return True
 
     token = _read_persisted_token()
-
     if not token:
         return False
 
     if _restore_from_token(token):
-        if "selv_sess" in st.query_params:
-            del st.query_params["selv_sess"]
         write_auth_cookie()
         return True
 
@@ -247,12 +236,13 @@ def write_auth_cookie() -> None:
     if not is_auth_enabled() or not is_session_valid(st.session_state):
         return
 
-    username = str(st.session_state.get("selv_auth_user") or "")
-    expires_at = float(st.session_state.selv_auth_expires_at)
-    token = create_auth_token(username, expires_at)
+    token = _current_session_token()
+    if not token:
+        return
     if st.session_state.get("_selv_auth_persisted_token") == token:
         return
 
+    expires_at = float(st.session_state.selv_auth_expires_at)
     max_age = max(60, int(expires_at - time.time()))
     persist_client_auth(token, max_age)
     st.session_state["_selv_auth_persisted_token"] = token
