@@ -201,6 +201,9 @@ def is_authenticated() -> bool:
     if not is_session_valid(st.session_state):
         return False
     _renew_session_if_needed()
+    if not st.session_state.get("_selv_auth_client_synced"):
+        write_auth_cookie()
+        st.session_state["_selv_auth_client_synced"] = True
     return True
 
 
@@ -211,12 +214,13 @@ def ensure_authenticated() -> bool:
     if not is_auth_enabled():
         return True
 
-    bootstrap_cookie_manager()
     try_restore_auth_from_cookie()
     if is_authenticated():
         return True
 
     request_client_auth_restore()
+    bootstrap_cookie_manager(force=True)
+    try_restore_auth_from_cookie()
     if is_authenticated():
         return True
 

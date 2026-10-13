@@ -47,7 +47,7 @@ def _read_cookie_header_token() -> str | None:
     return None
 
 
-def _read_persisted_token() -> str | None:
+def _read_http_cookie_token() -> str | None:
     query_token = st.query_params.get("selv_sess")
     if query_token:
         return str(query_token).strip()
@@ -59,9 +59,13 @@ def _read_persisted_token() -> str | None:
     if cookie_val:
         return unquote(str(cookie_val)).strip()
 
-    header_token = _read_cookie_header_token()
-    if header_token:
-        return header_token
+    return _read_cookie_header_token()
+
+
+def _read_persisted_token() -> str | None:
+    token = _read_http_cookie_token()
+    if token:
+        return token
 
     mgr = st.session_state.get("_selv_cookie_mgr")
     if mgr is not None:
@@ -86,6 +90,22 @@ def _top_window_script(body: str) -> None:
     )
 
 
+def _persist_top_window_cookie(token: str, max_age: int) -> None:
+    """Cookie en la ventana principal: sobrevive Ctrl+Shift+R y llega al servidor."""
+    secure_flag = " + (w.location.protocol === 'https:' ? '; Secure' : '')"
+    _top_window_script(
+        f"""
+        const key = {json.dumps(_STORAGE_KEY)};
+        const value = {json.dumps(token)};
+        const maxAge = {int(max_age)};
+        try {{
+            w.document.cookie = key + "=" + encodeURIComponent(value)
+                + "; path=/; max-age=" + maxAge + "; SameSite=Lax"{secure_flag};
+        }} catch (e) {{}}
+        """
+    )
+
+
 def _sync_local_storage(token: str, max_age: int) -> None:
     expires_unix = int(time.time()) + int(max_age)
     _top_window_script(
@@ -102,11 +122,11 @@ def _sync_local_storage(token: str, max_age: int) -> None:
     )
 
 
-def bootstrap_cookie_manager() -> None:
+def bootstrap_cookie_manager(force: bool = False) -> None:
     """Lee cookies del navegador (necesario en Streamlit Cloud)."""
     if not is_auth_enabled():
         return
-    if st.session_state.get("_selv_cookie_mgr") is None:
+    if force or st.session_state.get("_selv_cookie_mgr") is None:
         st.session_state["_selv_cookie_mgr"] = _get_cookie_manager()
 
 
@@ -116,6 +136,8 @@ def persist_client_auth(token: str, max_age: int) -> None:
         mgr = _get_cookie_manager()
         st.session_state["_selv_cookie_mgr"] = mgr
 
+    _persist_top_window_cookie(token, max_age)
+    _sync_local_storage(token, max_age)
     mgr.set(
         AUTH_COOKIE_NAME,
         token,
@@ -125,7 +147,6 @@ def persist_client_auth(token: str, max_age: int) -> None:
         secure=_cookie_secure() or None,
         same_site="lax",
     )
-    _sync_local_storage(token, max_age)
 
 
 def clear_client_auth() -> None:
@@ -206,7 +227,11 @@ def try_restore_auth_from_cookie() -> bool:
         st.session_state.pop(_RESTORE_FLAG, None)
         return True
 
-    token = _read_persisted_token()
+    token = _read_http_cookie_token()
+    if not token:
+        bootstrap_cookie_manager(force=True)
+        token = _read_persisted_token()
+
     if not token:
         return False
 

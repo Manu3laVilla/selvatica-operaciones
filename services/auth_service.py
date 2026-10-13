@@ -131,5 +131,6 @@ def clear_auth_session(session_state) -> None:
     session_state.pop("selv_auth_expires_at", None)
     session_state.pop("_selv_auth_last_renew", None)
     session_state.pop("_selv_auth_persisted_token", None)
+    session_state.pop("_selv_auth_client_synced", None)
     session_state.pop("_selv_auth_restore_scheduled", None)
     session_state["_selv_block_auth_restore"] = True
