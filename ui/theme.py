@@ -97,6 +97,119 @@ def _sidebar_icon_masks_css() -> str:
     return "\n".join(rules)
 
 
+def _sidebar_logout_and_toggle_css() -> str:
+    from urllib.parse import quote
+
+    c = COLORS
+    olive = c["olive"]
+    logout_path = "M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9"
+    logout_svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+        f'stroke="black" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+        f'<path d="{logout_path}"/></svg>'
+    )
+    logout_mask = quote(logout_svg)
+    return f"""
+    [data-testid="stSidebar"] .st-key-selv_sidebar_compact_toggle [data-testid="stTooltipIcon"],
+    [data-testid="stSidebar"] .st-key-selv_sidebar_compact_toggle [data-testid="stHelpTooltip"],
+    [data-testid="stSidebar"] [class*="selv_sidebar_compact_toggle"] [data-testid="stTooltipIcon"] {{
+        display: none !important;
+    }}
+
+    [data-testid="stSidebar"] [class*="selv_logout"] .stButton {{
+        margin-top: 0.35rem !important;
+        margin-bottom: 0.25rem !important;
+    }}
+
+    [data-testid="stSidebar"] [class*="selv_logout"] .stButton > button {{
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        min-height: 2.55rem !important;
+        padding: 0.65rem 0.85rem !important;
+        border-radius: 10px !important;
+        background: rgba(255, 255, 255, 0.55) !important;
+        border: 1px solid rgba(241, 193, 223, 0.9) !important;
+        box-shadow: 0 2px 8px rgba(78, 87, 46, 0.06) !important;
+        color: {olive} !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        transition: background 0.18s ease, border-color 0.18s ease !important;
+    }}
+
+    [data-testid="stSidebar"] [class*="selv_logout"] .stButton > button:hover {{
+        background: linear-gradient(
+            90deg,
+            rgba(241, 193, 223, 0.72) 0%,
+            rgba(255, 249, 194, 0.45) 100%
+        ) !important;
+        border-color: rgba(122, 94, 53, 0.22) !important;
+        color: {c['olive_dark']} !important;
+    }}
+
+    [data-testid="stSidebar"] .selv-sidebar-session {{
+        font-size: 0.82rem;
+        color: {c['brown']};
+        line-height: 1.35;
+        margin-bottom: 0.35rem;
+    }}
+
+    [data-testid="stSidebar"] .selv-sidebar-session strong {{
+        color: {olive};
+    }}
+
+    @media (min-width: 769px) {{
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] .selv-sidebar-session {{
+            display: none !important;
+        }}
+
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] {{
+            width: auto !important;
+            margin: 0.35rem auto 0.15rem auto !important;
+        }}
+
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] .stButton {{
+            width: 2.5rem !important;
+            margin: 0 auto !important;
+        }}
+
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] .stButton > button {{
+            width: 2.5rem !important;
+            min-width: 2.5rem !important;
+            max-width: 2.5rem !important;
+            min-height: 2.5rem !important;
+            height: 2.5rem !important;
+            padding: 0 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+        }}
+
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] .stButton > button > div,
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] .stButton > button p,
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] [data-testid="stMarkdownContainer"] {{
+            display: none !important;
+            visibility: hidden !important;
+        }}
+
+        body:has(.selv-sidebar-mode-marker[data-compact="1"]) [data-testid="stSidebar"] [class*="selv_logout"] .stButton > button::before {{
+            content: "" !important;
+            display: block !important;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 1.2rem;
+            height: 1.2rem;
+            background-color: {olive};
+            -webkit-mask: url("data:image/svg+xml,{logout_mask}") center / contain no-repeat;
+            mask: url("data:image/svg+xml,{logout_mask}") center / contain no-repeat;
+        }}
+    }}
+    """
+
+
 def _table_pagination_css(*, body_prefix: str = "") -> str:
     c = COLORS
     p = body_prefix
@@ -764,6 +877,7 @@ def _asset_data_uri(path: Path) -> str:
 def get_global_css() -> str:
     c = COLORS
     icon_masks = _sidebar_icon_masks_css()
+    sidebar_actions_css = _sidebar_logout_and_toggle_css()
     mobile_bar_css = _mobile_bottom_bar_css()
     mobile_page_css = _mobile_responsive_css()
     return f"""
@@ -985,6 +1099,8 @@ def get_global_css() -> str:
     }}
 
     {icon_masks}
+
+    {sidebar_actions_css}
 
     /* Sidebar compacto — desktop (controlado por session_state en Python) */
     @media (min-width: 769px) {{
@@ -1586,7 +1702,6 @@ def render_sidebar_branding() -> None:
     if st.sidebar.button(
         toggle_label,
         key="selv_sidebar_compact_toggle",
-        help="Contraer o expandir menú",
         type="tertiary",
     ):
         st.session_state.sidebar_compact = not compact

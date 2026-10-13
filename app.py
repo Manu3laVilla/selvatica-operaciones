@@ -54,6 +54,7 @@ from services.order_service import (
 from services.product_service import create_product, list_products, update_product
 from services.sale_service import list_sales, sales_exist_for_order
 from services.db import get_db, new_id, now_str
+from ui.login import ensure_authenticated, render_logout_button
 from ui.theme import (
     get_global_css,
     render_mobile_bottom_nav,
@@ -86,9 +87,9 @@ render_sidebar_expand_lock()
 if "preview_mode" not in st.session_state:
     st.session_state.preview_mode = is_preview_mode()
 
-
 def init_connection() -> bool:
-    if st.session_state.preview_mode:
+    if not resolves_data_backend():
+        st.session_state.preview_mode = True
         return True
 
     try:
@@ -100,8 +101,9 @@ def init_connection() -> bool:
         st.session_state.preview_mode = True
         show_alert("Modo vista previa — datos de ejemplo (sin conexión a la base)", "warning")
         st.caption(
-            "Configura DATABASE_URL (Supabase) o SPREADSHEET_ID + credenciales de Google "
-            f"en .env / Streamlit Secrets. Detalle: {exc}"
+            "Configura DATABASE_URL o DATABASE_POOLER_URL (Supabase, modo Session pooler en "
+            "redes IPv4) o SPREADSHEET_ID + credenciales de Google en .env / Streamlit Secrets. "
+            f"Detalle: {exc}"
         )
         return True
 
@@ -1542,6 +1544,7 @@ def sidebar() -> str:
         "supabase": "Supabase",
         "sheets": "Google Sheets",
     }.get(resolves_data_backend() or "", "Conectado")
+    render_logout_button()
     st.sidebar.markdown(
         f'<div class="selv-sidebar-footer"><strong>Base de datos:</strong> {db_label}</div>',
         unsafe_allow_html=True,
@@ -2546,6 +2549,9 @@ def page_contabilidad() -> None:
 
 
 def main() -> None:
+    if not ensure_authenticated():
+        return
+
     init_connection()
     menu = build_nav_menu(_alert_count())
     render_mobile_bottom_nav(menu)

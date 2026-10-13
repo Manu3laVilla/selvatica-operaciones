@@ -86,7 +86,11 @@ class PostgresDB:
                 "Falta DATABASE_URL. Configúralo en .env o en Streamlit Secrets."
             )
 
-        self._connection = psycopg2.connect(database_url, sslmode="require")
+        self._connection = psycopg2.connect(
+            database_url,
+            sslmode="require",
+            connect_timeout=12,
+        )
         self._connection.autocommit = True
         return self._connection
 

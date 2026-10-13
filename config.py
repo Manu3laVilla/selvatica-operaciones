@@ -50,16 +50,32 @@ def has_google_credentials() -> bool:
     return get_service_account_info() is not None
 
 
-def get_database_url() -> str:
-    env_url = os.getenv("DATABASE_URL", "").strip()
-    if env_url:
-        return env_url
+def _secret_value(*keys: str) -> str:
     try:
         import streamlit as st
 
-        return str(st.secrets.get("DATABASE_URL", "")).strip()
+        for key in keys:
+            value = str(st.secrets.get(key, "")).strip()
+            if value:
+                return value
     except Exception:
-        return ""
+        pass
+    return ""
+
+
+def get_database_url() -> str:
+    """Prioriza pooler (IPv4) sobre conexión directa (IPv6 en Supabase gratis)."""
+    pooler = os.getenv("DATABASE_POOLER_URL", "").strip()
+    if pooler:
+        return pooler
+    pooler_secret = _secret_value("DATABASE_POOLER_URL")
+    if pooler_secret:
+        return pooler_secret
+
+    env_url = os.getenv("DATABASE_URL", "").strip()
+    if env_url:
+        return env_url
+    return _secret_value("DATABASE_URL")
 
 
 def get_data_backend() -> str:
