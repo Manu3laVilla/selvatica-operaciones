@@ -97,6 +97,24 @@ def _sidebar_icon_masks_css() -> str:
     return "\n".join(rules)
 
 
+def _hidden_nav_trigger_css() -> str:
+    return """
+    [class*="st-key-selv_trigger_mobile_nav_"],
+    [class*="st-key-selv_trigger_secnav_"] {
+        position: fixed !important;
+        left: -10000px !important;
+        top: 0 !important;
+        width: 1px !important;
+        height: 1px !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: -1 !important;
+    }
+    """
+
+
 def _sidebar_logout_and_toggle_css() -> str:
     from urllib.parse import quote
 
@@ -878,6 +896,7 @@ def get_global_css() -> str:
     c = COLORS
     icon_masks = _sidebar_icon_masks_css()
     sidebar_actions_css = _sidebar_logout_and_toggle_css()
+    hidden_nav_css = _hidden_nav_trigger_css()
     mobile_bar_css = _mobile_bottom_bar_css()
     mobile_page_css = _mobile_responsive_css()
     return f"""
@@ -1101,6 +1120,7 @@ def get_global_css() -> str:
     {icon_masks}
 
     {sidebar_actions_css}
+    {hidden_nav_css}
 
     /* Sidebar compacto — desktop (controlado por session_state en Python) */
     @media (min-width: 769px) {{
@@ -2013,10 +2033,29 @@ def _mobile_nav_badge(label: str, page_key: str) -> str:
     return ""
 
 
+def _js_click_streamlit_key(doc_var: str) -> str:
+    """Devuelve función JS (triggerKey) => bool que pulsa un botón Streamlit oculto."""
+    return f"""
+        function selvClickStreamlitKey(triggerKey) {{
+            const host = {doc_var}.querySelector('[class*="st-key-' + triggerKey + '"]');
+            const btn = host ? host.querySelector("button") : null;
+            if (!btn) return false;
+            btn.click();
+            return true;
+        }}
+    """
+
+
 def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") -> None:
     import html
 
     import streamlit as st
+
+    for _label, page_key in menu.items():
+        trigger_key = f"selv_trigger_mobile_nav_{page_key}"
+        if st.button(" ", key=trigger_key):
+            st.session_state[state_key] = page_key
+            st.rerun()
 
     current = st.session_state.get(state_key, next(iter(menu.values())))
     sidebar_compact_flag = "1" if st.session_state.get("sidebar_compact") else "0"
@@ -2071,6 +2110,7 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
         (function () {{
             const targetWin = window.top || window;
             const doc = targetWin.document || document;
+            {_js_click_streamlit_key("doc")}
             doc.querySelectorAll("[data-selv-nav-page]").forEach((link) => {{
                 if (link.dataset.selvNavBound === "1") return;
                 link.dataset.selvNavBound = "1";
@@ -2078,6 +2118,11 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
                     event.preventDefault();
                     const page = link.getAttribute("data-selv-nav-page");
                     if (!page) return;
+                    const details = link.closest(".selv-mobile-nav-details");
+                    if (details) details.removeAttribute("open");
+                    if (selvClickStreamlitKey("selv_trigger_mobile_nav_" + page)) {{
+                        return;
+                    }}
                     const url = new URL(targetWin.location.href);
                     url.searchParams.set("selv_nav", page);
                     if (link.getAttribute("data-sidebar-compact") === "1") {{
@@ -2085,8 +2130,6 @@ def render_mobile_bottom_nav(menu: dict[str, str], state_key: str = "nav_page") 
                     }} else {{
                         url.searchParams.delete("sidebar_compact");
                     }}
-                    const details = link.closest(".selv-mobile-nav-details");
-                    if (details) details.removeAttribute("open");
                     targetWin.location.assign(url.toString());
                 }});
             }});
@@ -2217,11 +2260,20 @@ def section_tabs(options: list[str], key: str) -> str:
     compact_suffix = sidebar_compact_query_suffix()
     preserve_suffix = _section_preserve_query_suffix(exclude_key=key)
 
+    trigger_keys: list[str] = []
+    for index, option in enumerate(options):
+        trigger_key = f"selv_trigger_secnav_{key}_{index}"
+        trigger_keys.append(trigger_key)
+        if st.button(" ", key=trigger_key):
+            st.session_state[state_key] = option
+            st.rerun()
+
     items = []
-    for option in options:
+    for index, option in enumerate(options):
         active = option == current
         active_cls = " selv-secnav-btn--active" if active else ""
         safe_label = html_module.escape(option)
+        trigger_key = trigger_keys[index]
         href = (
             f"?selv_nav={quote(page_key)}"
             f"&sec_{key}={quote(option)}"
@@ -2229,12 +2281,33 @@ def section_tabs(options: list[str], key: str) -> str:
         )
         items.append(
             f'<a class="selv-secnav-btn{active_cls}" href="{href}" '
+            f'data-secnav-trigger="{html_module.escape(trigger_key)}" '
             f'title="{safe_label}">{safe_label}</a>'
         )
 
     st.html(
-        f'<nav class="selv-secnav-bar" aria-label="Sección">{"".join(items)}</nav>',
-        unsafe_allow_javascript=False,
+        f"""
+        <nav class="selv-secnav-bar" aria-label="Sección">{"".join(items)}</nav>
+        <script>
+        (function () {{
+            const targetWin = window.top || window;
+            const doc = targetWin.document || document;
+            {_js_click_streamlit_key("doc")}
+            doc.querySelectorAll(".selv-secnav-btn[data-secnav-trigger]").forEach((link) => {{
+                if (link.dataset.secnavBound === "1") return;
+                link.dataset.secnavBound = "1";
+                link.addEventListener("click", (event) => {{
+                    const triggerKey = link.getAttribute("data-secnav-trigger");
+                    if (triggerKey && selvClickStreamlitKey(triggerKey)) {{
+                        event.preventDefault();
+                        return;
+                    }}
+                }});
+            }});
+        }})();
+        </script>
+        """,
+        unsafe_allow_javascript=True,
     )
 
     return current

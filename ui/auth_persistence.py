@@ -1,4 +1,4 @@
-"""Persiste la sesión en el navegador (localStorage + cookie en ventana principal)."""
+"""Persiste la sesión en el navegador (cookie vía componente + localStorage de respaldo)."""
 from __future__ import annotations
 
 import json
@@ -21,6 +21,57 @@ _TTL_KEY = f"{AUTH_COOKIE_NAME}_ttl"
 _RESTORE_FLAG = "_selv_auth_restore_scheduled"
 
 
+def _cookie_secure() -> bool:
+    try:
+        return str(st.context.url or "").startswith("https://")
+    except Exception:
+        return False
+
+
+def _get_cookie_manager():
+    import extra_streamlit_components as esc
+
+    return esc.CookieManager(key="selv_auth_cookie_manager")
+
+
+def _read_cookie_header_token() -> str | None:
+    try:
+        cookie_header = str(st.context.headers.get("Cookie", "") or "")
+    except Exception:
+        return None
+    prefix = f"{AUTH_COOKIE_NAME}="
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if part.startswith(prefix):
+            return unquote(part[len(prefix) :]).strip()
+    return None
+
+
+def _read_persisted_token() -> str | None:
+    query_token = st.query_params.get("selv_sess")
+    if query_token:
+        return str(query_token).strip()
+
+    try:
+        cookie_val = st.context.cookies.get(AUTH_COOKIE_NAME)
+    except Exception:
+        cookie_val = None
+    if cookie_val:
+        return unquote(str(cookie_val)).strip()
+
+    header_token = _read_cookie_header_token()
+    if header_token:
+        return header_token
+
+    mgr = st.session_state.get("_selv_cookie_mgr")
+    if mgr is not None:
+        val = mgr.get(AUTH_COOKIE_NAME)
+        if val:
+            return str(val).strip()
+
+    return None
+
+
 def _top_window_script(body: str) -> None:
     st.html(
         f"""
@@ -35,20 +86,7 @@ def _top_window_script(body: str) -> None:
     )
 
 
-def _read_persisted_token() -> str | None:
-    query_token = st.query_params.get("selv_sess")
-    if query_token:
-        return str(query_token).strip()
-    try:
-        cookie_val = st.context.cookies.get(AUTH_COOKIE_NAME)
-    except Exception:
-        cookie_val = None
-    if not cookie_val:
-        return None
-    return unquote(str(cookie_val)).strip()
-
-
-def persist_client_auth(token: str, max_age: int) -> None:
+def _sync_local_storage(token: str, max_age: int) -> None:
     expires_unix = int(time.time()) + int(max_age)
     _top_window_script(
         f"""
@@ -60,16 +98,42 @@ def persist_client_auth(token: str, max_age: int) -> None:
             w.localStorage.setItem(key, value);
             w.localStorage.setItem(ttlKey, String(expiresUnix));
         }} catch (e) {{}}
-        try {{
-            const maxAge = {int(max_age)};
-            w.document.cookie = key + "=" + encodeURIComponent(value)
-                + "; path=/; max-age=" + maxAge + "; SameSite=Lax";
-        }} catch (e) {{}}
         """
     )
 
 
+def bootstrap_cookie_manager() -> None:
+    """Lee cookies del navegador (necesario en Streamlit Cloud)."""
+    if not is_auth_enabled():
+        return
+    if st.session_state.get("_selv_cookie_mgr") is None:
+        st.session_state["_selv_cookie_mgr"] = _get_cookie_manager()
+
+
+def persist_client_auth(token: str, max_age: int) -> None:
+    mgr = st.session_state.get("_selv_cookie_mgr")
+    if mgr is None:
+        mgr = _get_cookie_manager()
+        st.session_state["_selv_cookie_mgr"] = mgr
+
+    mgr.set(
+        AUTH_COOKIE_NAME,
+        token,
+        key="selv_auth_set",
+        path="/",
+        max_age=float(max(60, int(max_age))),
+        secure=_cookie_secure() or None,
+        same_site="lax",
+    )
+    _sync_local_storage(token, max_age)
+
+
 def clear_client_auth() -> None:
+    mgr = st.session_state.get("_selv_cookie_mgr")
+    if mgr is not None:
+        mgr.delete(AUTH_COOKIE_NAME, key="selv_auth_del")
+
+    secure = "; Secure" if _cookie_secure() else ""
     _top_window_script(
         f"""
         const key = {json.dumps(_STORAGE_KEY)};
@@ -79,16 +143,17 @@ def clear_client_auth() -> None:
             w.localStorage.removeItem(ttlKey);
         }} catch (e) {{}}
         try {{
-            w.document.cookie = key + "=; path=/; max-age=0; SameSite=Lax";
+            w.document.cookie = key + "=; path=/; max-age=0; SameSite=Lax{secure}";
         }} catch (e) {{}}
         """
     )
     st.session_state.pop("_selv_auth_persisted_token", None)
+    st.session_state.pop("_selv_cookie_mgr", None)
     st.session_state.pop(_RESTORE_FLAG, None)
 
 
 def request_client_auth_restore() -> None:
-    """Respaldo: si no llegó cookie al servidor, reintenta con localStorage (una vez)."""
+    """Respaldo: localStorage → ?selv_sess= (una recarga) si no hay cookie legible."""
     if not is_auth_enabled() or is_session_valid(st.session_state):
         st.session_state.pop(_RESTORE_FLAG, None)
         return
