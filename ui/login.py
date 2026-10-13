@@ -16,7 +16,6 @@ from services.auth_service import (
     verify_login,
 )
 from ui.auth_persistence import (
-    bootstrap_cookie_manager,
     clear_auth_cookie,
     try_restore_auth_from_cookie,
     write_auth_cookie,
@@ -219,8 +218,6 @@ def ensure_authenticated() -> bool:
         return True
 
     request_client_auth_restore()
-    bootstrap_cookie_manager(force=True)
-    try_restore_auth_from_cookie()
     if is_authenticated():
         return True
 

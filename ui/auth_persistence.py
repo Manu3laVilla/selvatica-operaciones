@@ -28,10 +28,19 @@ def _cookie_secure() -> bool:
         return False
 
 
-def _get_cookie_manager():
-    import extra_streamlit_components as esc
+def get_cookie_manager():
+    """Una sola instancia por sesión de Streamlit (evita DuplicateElementKey)."""
+    if not is_auth_enabled():
+        return None
+    mgr = st.session_state.get("_selv_cookie_mgr")
+    if mgr is None:
+        import extra_streamlit_components as esc
 
-    return esc.CookieManager(key="selv_auth_cookie_manager")
+        st.session_state["_selv_cookie_mgr"] = esc.CookieManager(
+            key="selv_auth_cookie_manager"
+        )
+        mgr = st.session_state["_selv_cookie_mgr"]
+    return mgr
 
 
 def _read_cookie_header_token() -> str | None:
@@ -67,7 +76,7 @@ def _read_persisted_token() -> str | None:
     if token:
         return token
 
-    mgr = st.session_state.get("_selv_cookie_mgr")
+    mgr = get_cookie_manager()
     if mgr is not None:
         val = mgr.get(AUTH_COOKIE_NAME)
         if val:
@@ -122,22 +131,12 @@ def _sync_local_storage(token: str, max_age: int) -> None:
     )
 
 
-def bootstrap_cookie_manager(force: bool = False) -> None:
-    """Lee cookies del navegador (necesario en Streamlit Cloud)."""
-    if not is_auth_enabled():
-        return
-    if force or st.session_state.get("_selv_cookie_mgr") is None:
-        st.session_state["_selv_cookie_mgr"] = _get_cookie_manager()
-
-
 def persist_client_auth(token: str, max_age: int) -> None:
-    mgr = st.session_state.get("_selv_cookie_mgr")
-    if mgr is None:
-        mgr = _get_cookie_manager()
-        st.session_state["_selv_cookie_mgr"] = mgr
-
     _persist_top_window_cookie(token, max_age)
     _sync_local_storage(token, max_age)
+    mgr = get_cookie_manager()
+    if mgr is None:
+        return
     mgr.set(
         AUTH_COOKIE_NAME,
         token,
@@ -150,7 +149,7 @@ def persist_client_auth(token: str, max_age: int) -> None:
 
 
 def clear_client_auth() -> None:
-    mgr = st.session_state.get("_selv_cookie_mgr")
+    mgr = get_cookie_manager()
     if mgr is not None:
         mgr.delete(AUTH_COOKIE_NAME, key="selv_auth_del")
 
@@ -227,10 +226,7 @@ def try_restore_auth_from_cookie() -> bool:
         st.session_state.pop(_RESTORE_FLAG, None)
         return True
 
-    token = _read_http_cookie_token()
-    if not token:
-        bootstrap_cookie_manager(force=True)
-        token = _read_persisted_token()
+    token = _read_persisted_token()
 
     if not token:
         return False
